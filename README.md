@@ -62,11 +62,23 @@ The project addresses the complexities and inefficiencies of traditional event p
 ### 16 Week Development Schedule (Primary)
 ![16 week development schedule link](https://www.mermaidchart.com/raw/d3d8adad-d080-4953-8670-bb48c2a58e3a?theme=light&version=v0.1&format=svg)
 
+# Project Roadmap: for the Event Planning Format (Sentinet Stories)
+
+| Sprint Name              | Timeline       | Goals and Activities |
+|--------------------------|---------------|----------------------|
+| **Foundation Setup**     | Week 1-4      | - Research for the Emotinal Journey mapper.<br> - Set up project structure and initialize the repository for frontend and backend.<br> - Create the basic website skeleton with navigation using React.<br> - Implement user login and registration functionality (React, Firebase Authentication).<br> - Design initial wireframes for the Admin Dashboard and event creation pages.<br> - Begin training the Emotinal Journey Mapper. |
+| **Feature Development**  | Week 5-8      | - Implement backend API for the Emotinal Journey Mapper using Flask.<br> - Test the Emotinal Journey Mapper with sample event data.<br> - Research for the Weather Mood Adapter.<br> - Develop backend logic for the Weather Mood Adapter .<br> - Implement basic Admin Dashboard layout with user and event management features (using Firebase Firestore for data storage). |
+| **Integration and Refinement** | Week 9-12  | - Develop a unified frontend for the Weather Mood adapter and Emotional Journey Mapper.<br> - Integrate both features  with the event management system core functions.<br> - Add functionality for event creation, task management, and analytics on the Admin Dashboard.<br> - Conduct initial testing, fix bugs, and refine user workflows for all features. |
+| **Testing and Deployment** | Week 13-16  | - Conduct comprehensive testing with sample events, gather feedback, and refine features.<br> - Finalize the platform features (Admin Dashboard, user authentication, event management system, etc.).<br> - Perform stress testing to ensure scalability and reliability.<br> - Deploy the platform to the production environment using Firebase Hosting.<br> - Prepare documentation and present the final project. |
+
+
 
 ## Install
 
 ```sh
-NA
+cd client
+npm install
+npm run dev
 ```
 
 ## Usage
