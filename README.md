@@ -60,7 +60,7 @@ The project addresses the complexities and inefficiencies of traditional event p
 [Daily Task Progression Dashboard](https://trello.com/invite/b/679a21a0767b632b42e15bd8/ATTId83a4b26bdf878b44f8e50339c13cf36417BEA91/daily-task-progression)
 
 ### 16 Week Development Schedule (Primary)
-
+![16 week development schedule link](https://www.mermaidchart.com/raw/d3d8adad-d080-4953-8670-bb48c2a58e3a?theme=light&version=v0.1&format=svg)
 
 
 ## Install
