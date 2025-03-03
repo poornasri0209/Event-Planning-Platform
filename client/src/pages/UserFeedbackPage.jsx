@@ -2,7 +2,7 @@ import React from 'react'
 
 const UserFeedbackPage = () => {
   return (
-    <div>UserFeedbackPage</div>
+    <div>This page is user feedback</div>
   )
 }
 
