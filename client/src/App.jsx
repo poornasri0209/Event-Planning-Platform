@@ -6,6 +6,7 @@ import MultiFacPage from './pages/MultiFacPage'
 import LandingPage from './pages/LandingPage'
 import UserProfilePage from './pages/UserProfilePage'
 import UserFeedbackPage from './pages/UserFeedbackPage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
 
 
 const App = () => {
@@ -18,6 +19,7 @@ const App = () => {
         <Route path='/home' element={<LandingPage />} />
         <Route path='/profile' element={<UserProfilePage />} />
         <Route path='/feedback' element={<UserFeedbackPage />} />
+        <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
       </Routes>
     </div>
   )
