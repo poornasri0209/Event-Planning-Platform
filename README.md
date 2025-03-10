@@ -1,5 +1,5 @@
-# Sentinent Stories (Event Planning Platform)
-
+# Project : Event Planning Platform 
+### Project Name : Sentinent Stories
 ![version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![npm](https://img.shields.io/badge/npm->=10.8.0-blue.svg)
 ![node](https://img.shields.io/badge/node->=20.18.1-blue.svg)
