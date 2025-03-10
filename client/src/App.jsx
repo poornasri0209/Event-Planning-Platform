@@ -7,6 +7,7 @@ import LandingPage from './pages/LandingPage'
 import UserProfilePage from './pages/UserProfilePage'
 import UserFeedbackPage from './pages/UserFeedbackPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
+import AdminProfile from './pages/AdminProfile'
 
 
 const App = () => {
@@ -20,6 +21,7 @@ const App = () => {
         <Route path='/profile' element={<UserProfilePage />} />
         <Route path='/feedback' element={<UserFeedbackPage />} />
         <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
+        <Route path="/admin-profile" element={<AdminProfile />} />
       </Routes>
     </div>
   )
