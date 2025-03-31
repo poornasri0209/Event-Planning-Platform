@@ -46,7 +46,7 @@ const App = () => {
               <UserFeedbackPage />
             </ProtectedRoute>
           } />
-          <Route path="/event/create" element={
+          <Route path="/events" element={
             <ProtectedRoute>
               <EventCreation />
             </ProtectedRoute>
