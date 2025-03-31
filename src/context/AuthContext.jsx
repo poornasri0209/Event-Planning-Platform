@@ -25,10 +25,20 @@ export const AuthProvider = ({ children }) => {
   const [userPhoneNumber, setUserPhoneNumber] = useState('');
   const [verificationMethod, setVerificationMethod] = useState('email'); // 'email' or 'phone'
   const [verificationId, setVerificationId] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
   
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(user => {
       setCurrentUser(user);
+      
+      // Check if user is admin
+      if (user && user.email === 'admin@admin.com') {
+        setIsAdmin(true);
+        setNeedsMultiFactor(false); // Admin bypasses 2FA
+      } else {
+        setIsAdmin(false);
+      }
+      
       setLoading(false);
     });
 
@@ -64,12 +74,27 @@ export const AuthProvider = ({ children }) => {
 
   // Sign in a user
   const login = async (email, password) => {
-    // Special case for admin
-    if (email === 'admin@admin.com' && password === 'admin123') {
-      return { isAdmin: true };
-    }
-    
     try {
+      // Special case for admin
+      if (email === 'admin@admin.com' && password === 'admin123') {
+        // For admin user, we'll create a synthetic user object 
+        // since we're not actually authenticating with Firebase
+        const adminUser = {
+          uid: 'admin-user',
+          email: 'admin@admin.com',
+          displayName: 'Admin User',
+          isAdmin: true
+        };
+        
+        // Set current user and admin flag
+        setCurrentUser(adminUser);
+        setIsAdmin(true);
+        setNeedsMultiFactor(false);
+        
+        return { user: adminUser, isAdmin: true };
+      }
+      
+      // Regular user login
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       
       // Set default verification method
@@ -78,6 +103,7 @@ export const AuthProvider = ({ children }) => {
       
       return userCredential;
     } catch (error) {
+      console.error('Login error in context:', error);
       throw error;
     }
   };
@@ -182,10 +208,21 @@ export const AuthProvider = ({ children }) => {
   // Logout
   const logout = async () => {
     try {
+      // If admin user (which is not actually authenticated with Firebase)
+      if (isAdmin && currentUser?.email === 'admin@admin.com') {
+        setCurrentUser(null);
+        setIsAdmin(false);
+        setNeedsMultiFactor(false);
+        return;
+      }
+      
+      // Regular Firebase logout
       await signOut(auth);
       setNeedsMultiFactor(false);
       setVerificationId('');
+      setIsAdmin(false);
     } catch (error) {
+      console.error('Logout error:', error);
       throw error;
     }
   };
@@ -198,6 +235,7 @@ export const AuthProvider = ({ children }) => {
     setVerificationMethod,
     userPhoneNumber,
     setUserPhoneNumber,
+    isAdmin,
     register,
     login,
     logout,
