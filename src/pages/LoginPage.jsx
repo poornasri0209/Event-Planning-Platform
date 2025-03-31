@@ -1,16 +1,48 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  
+  const navigate = useNavigate();
+  const { login, setNeedsMultiFactor } = useAuth();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Add authentication logic here
-    console.log('Login attempt:', { email, password, rememberMe });
+    
+    try {
+      setError('');
+      setLoading(true);
+      
+      // Check for admin login
+      if (email === 'admin@admin.com' && password === 'admin123') {
+        // Admin login bypasses 2FA and goes directly to dashboard
+        await login(email, password);
+        navigate('/admin/dashboard');
+        return;
+      }
+      
+      // Regular user login
+      const result = await login(email, password);
+      
+      // Set that multifactor authentication is needed
+      setNeedsMultiFactor(true);
+      
+      // Redirect to 2FA page
+      navigate('/2fa');
+      
+    } catch (err) {
+      setError('Failed to log in. ' + (err.message || 'Please check your credentials.'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -26,7 +58,7 @@ const LoginPage = () => {
         {/* Placeholder for your image */}
         <div className="absolute inset-0 flex items-center justify-center text-gray-400">
           <img 
-            src="https://images.unsplash.com/photo-1469371670807-013ccf25f16a?fm=jpg&q=60&w=3000&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8ZXZlbnQlMjBwbGFubmVyfGVufDB8fDB8fHww" 
+            src="/api/placeholder/400/320" 
             alt="Event planning illustration" 
             className="object-cover w-full h-full"
           />
@@ -49,6 +81,13 @@ const LoginPage = () => {
             <h1 className="text-3xl font-semibold text-gray-900">Welcome back</h1>
             <p className="text-gray-600 mt-2">Please enter your credentials to sign in</p>
           </div>
+
+          {/* Error message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+              {error}
+            </div>
+          )}
 
           {/* Form */}
           <form onSubmit={handleSubmit}>
@@ -128,19 +167,18 @@ const LoginPage = () => {
             <div className="mb-6">
               <button
                 type="submit"
+                disabled={loading}
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150"
               >
-                Sign In
+                {loading ? 'Signing in...' : 'Sign In'}
               </button>
             </div>
-
-
 
             {/* Sign up link */}
             <div className="text-center">
               <p className="text-sm text-gray-600">
                 Don't have an account?{' '}
-                <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+                <a href="/register" className="font-medium text-indigo-600 hover:text-indigo-500">
                   Sign up
                 </a>
               </p>
