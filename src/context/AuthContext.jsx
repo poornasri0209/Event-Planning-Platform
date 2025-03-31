@@ -7,7 +7,10 @@ import {
   updateProfile,
   sendEmailVerification,
   RecaptchaVerifier,
-  signInWithPhoneNumber
+  signInWithPhoneNumber,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import app from '../firebase'; // Import the Firebase app instance
 
@@ -27,16 +30,45 @@ export const AuthProvider = ({ children }) => {
   const [verificationId, setVerificationId] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   
+  // Set persistent auth
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(user => {
-      setCurrentUser(user);
-      
-      // Check if user is admin
-      if (user && user.email === 'admin@admin.com') {
-        setIsAdmin(true);
-        setNeedsMultiFactor(false); // Admin bypasses 2FA
+    setPersistence(auth, browserLocalPersistence).catch(error => {
+      console.error("Error setting persistence:", error);
+    });
+  }, [auth]);
+  
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, user => {
+      if (user) {
+        setCurrentUser(user);
+        
+        // Check if user is admin
+        if (user.email === 'admin@admin.com') {
+          setIsAdmin(true);
+          setNeedsMultiFactor(false); // Admin bypasses 2FA
+          
+          // Store admin status in localStorage to persist across reloads
+          localStorage.setItem('isAdmin', 'true');
+        } else {
+          setIsAdmin(false);
+          localStorage.removeItem('isAdmin');
+        }
       } else {
-        setIsAdmin(false);
+        // Check if we have a stored admin user
+        if (localStorage.getItem('isAdmin') === 'true') {
+          // Recreate admin user object
+          const adminUser = {
+            uid: 'admin-user',
+            email: 'admin@admin.com',
+            displayName: 'Admin User',
+          };
+          setCurrentUser(adminUser);
+          setIsAdmin(true);
+          setNeedsMultiFactor(false);
+        } else {
+          setCurrentUser(null);
+          setIsAdmin(false);
+        }
       }
       
       setLoading(false);
@@ -62,6 +94,7 @@ export const AuthProvider = ({ children }) => {
       
       // Store the phone number
       setUserPhoneNumber(phone);
+      localStorage.setItem('userPhoneNumber', phone);
       
       // Send email verification
       await sendEmailVerification(userCredential.user);
@@ -78,12 +111,13 @@ export const AuthProvider = ({ children }) => {
       // Special case for admin
       if (email === 'admin@admin.com' && password === 'admin123') {
         // For admin user, we'll create a synthetic user object 
-        // since we're not actually authenticating with Firebase
+        // Store admin flag in localStorage for persistence
+        localStorage.setItem('isAdmin', 'true');
+        
         const adminUser = {
           uid: 'admin-user',
           email: 'admin@admin.com',
           displayName: 'Admin User',
-          isAdmin: true
         };
         
         // Set current user and admin flag
@@ -125,52 +159,16 @@ export const AuthProvider = ({ children }) => {
   // Set up phone verification
   const setupPhoneVerification = async (phoneNumber) => {
     try {
-      const formattedPhoneNumber = phoneNumber || userPhoneNumber;
+      const formattedPhoneNumber = phoneNumber || userPhoneNumber || localStorage.getItem('userPhoneNumber');
       
       if (!formattedPhoneNumber) {
         throw new Error('No phone number available');
       }
       
       // For development testing only - bypass actual phone verification
-      // Comment this out for production
       console.log("Phone verification would normally send a code to:", formattedPhoneNumber);
       setVerificationMethod('phone');
       return true;
-      
-      // Uncomment this for production use
-      /*
-      // Clear any existing reCAPTCHA
-      const recaptchaContainer = document.getElementById('recaptcha-container');
-      if (recaptchaContainer) {
-        recaptchaContainer.innerHTML = '';
-      }
-      
-      // Create a new global RecaptchaVerifier if it doesn't exist
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          'size': 'normal',
-          'callback': (response) => {
-            console.log('reCAPTCHA verified');
-          },
-          'expired-callback': () => {
-            console.log('reCAPTCHA expired');
-          }
-        });
-      }
-      
-      // Call signInWithPhoneNumber
-      const confirmationResult = await signInWithPhoneNumber(
-        auth,
-        formattedPhoneNumber,
-        window.recaptchaVerifier
-      );
-      
-      // Store the verification ID
-      setVerificationId(confirmationResult.verificationId);
-      setVerificationMethod('phone');
-      
-      return true;
-      */
     } catch (error) {
       console.error('Phone verification setup error:', error);
       throw new Error(`Failed to set up phone verification: ${error.message}`);
@@ -186,28 +184,15 @@ export const AuthProvider = ({ children }) => {
     }
     
     throw new Error('Invalid verification code');
-    
-    /* Uncomment this for production use
-    try {
-      if (!verificationId) {
-        throw new Error('No verification ID available');
-      }
-      
-      const phoneCredential = PhoneAuthProvider.credential(verificationId, otp);
-      
-      // Link the credential to the user account if needed
-      // await linkWithCredential(currentUser, phoneCredential);
-      
-      return true;
-    } catch (error) {
-      throw error;
-    }
-    */
   };
 
   // Logout
   const logout = async () => {
     try {
+      // Clear admin flag from localStorage
+      localStorage.removeItem('isAdmin');
+      localStorage.removeItem('userPhoneNumber');
+      
       // If admin user (which is not actually authenticated with Firebase)
       if (isAdmin && currentUser?.email === 'admin@admin.com') {
         setCurrentUser(null);
@@ -236,6 +221,7 @@ export const AuthProvider = ({ children }) => {
     userPhoneNumber,
     setUserPhoneNumber,
     isAdmin,
+    loading,
     register,
     login,
     logout,
@@ -246,7 +232,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
