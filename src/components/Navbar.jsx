@@ -82,10 +82,10 @@ const Navbar = () => {
                 Pricing
               </Link>
               <Link 
-                to="#contact" 
+                to="/feedback" 
                 className={`${isScrolled ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
               >
-                Contact
+                Feedback
               </Link>
             </div>
           </div>
