@@ -15,7 +15,8 @@ import {
   DollarSign,
   PieChart,
   Sliders,
-  Package
+  Package,
+  User
 } from 'lucide-react';
 
 // Import content components - all from the same directory
@@ -43,7 +44,7 @@ const AdminDashboardPage = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Navigation items
+  // Navigation items - Added Profile option to the bottom of the main navigation
   const navigation = [
     { name: 'Dashboard', icon: BarChart3 },
     { name: 'Events', icon: Calendar },
@@ -53,6 +54,7 @@ const AdminDashboardPage = () => {
     { name: 'Finances', icon: DollarSign },
     { name: 'Analytics', icon: PieChart },
     { name: 'Settings', icon: Sliders },
+    { name: 'Profile', icon: User },
   ];
 
   // Handle logout
@@ -182,7 +184,16 @@ const AdminDashboardPage = () => {
                   <Bell className="h-6 w-6" />
                 </button>
                 
-                {/* Visible logout button in header */}
+                {/* Profile quick access in header */}
+                <button 
+                  onClick={() => setActiveComponent('Profile')}
+                  className="flex items-center justify-center p-1 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 focus:outline-none"
+                  title="Your Profile"
+                >
+                  <User className="h-6 w-6" />
+                </button>
+                
+                {/* Logout button in header */}
                 <button 
                   onClick={handleLogout}
                   className="flex items-center justify-center p-1 rounded-full bg-red-50 text-red-600 hover:bg-red-100 focus:outline-none"
