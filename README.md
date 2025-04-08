@@ -1,17 +1,5 @@
 # Project : Event Planning Platform 
-### Project Name : Sentinent Stories
-![version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![npm](https://img.shields.io/badge/npm->=10.8.0-blue.svg)
-![node](https://img.shields.io/badge/node->=20.18.1-blue.svg)
-![documentation](https://img.shields.io/badge/documentation-yes-green.svg)
-![Python >=3.12](https://img.shields.io/badge/python->=3.11-blue.svg)
-
-
-
-## Project Name
-
-### Event Planning Platform
-
+### Project Name : Sentiment Stories
 ## 🏠 Project Description
 
 The project addresses the complexities and inefficiencies of traditional event planning by integrating AI-driven solutions to create meaningful and impactful events. It leverages behavioral psychology and data analytics to enhance attendee experiences, optimize event outcomes, and ensure efficient planning. This platform fulfills the growing need for personalized, data-driven event management systems.
