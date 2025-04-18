@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, query, orderBy, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase'; // Adjust path as needed based on your project structure
 
 const VendorManagement = () => {
@@ -13,14 +13,20 @@ const VendorManagement = () => {
   const [isEditing, setIsEditing] = useState(false);
   // State for current vendor being edited
   const [currentVendor, setCurrentVendor] = useState(null);
+  // State for search query
+  const [searchQuery, setSearchQuery] = useState('');
+  // State for filtered vendors
+  const [filteredVendors, setFilteredVendors] = useState([]);
   // State for vendor form data
   const [vendorForm, setVendorForm] = useState({
     name: '',
     email: '',
     phone: '',
-    services: '',
-    rate: '',
-    rating: '',
+    companyName: '',
+    description: '',
+    website: '',
+    address: '',
+    budget: '',
     status: 'Active'
   });
   // State for form error
@@ -35,13 +41,17 @@ const VendorManagement = () => {
     fetchVendors();
   }, []);
 
+  // Update filtered vendors when search query or vendors change
+  useEffect(() => {
+    filterVendors();
+  }, [searchQuery, vendors]);
+
   // Function to fetch vendors from Firebase
   const fetchVendors = async () => {
     try {
       setLoading(true);
       const vendorsCollection = collection(db, 'vendors');
-      const vendorsQuery = query(vendorsCollection, orderBy('name'));
-      const querySnapshot = await getDocs(vendorsQuery);
+      const querySnapshot = await getDocs(vendorsCollection);
       
       const fetchedVendors = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -49,11 +59,29 @@ const VendorManagement = () => {
       }));
       
       setVendors(fetchedVendors);
+      setFilteredVendors(fetchedVendors);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching vendors:', error);
       setLoading(false);
     }
+  };
+
+  // Filter vendors based on search query
+  const filterVendors = () => {
+    if (searchQuery.trim() === '') {
+      setFilteredVendors(vendors);
+      return;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    const filtered = vendors.filter(vendor => 
+      vendor.name?.toLowerCase().includes(query) || 
+      vendor.companyName?.toLowerCase().includes(query) ||
+      vendor.email?.toLowerCase().includes(query)
+    );
+    
+    setFilteredVendors(filtered);
   };
 
   // Function to add or update a vendor in Firebase
@@ -73,14 +101,28 @@ const VendorManagement = () => {
         return;
       }
       
+      if (!vendorForm.phone.trim()) {
+        setFormError('Phone number is required');
+        return;
+      }
+      
+      // Validate budget as a number
+      const budgetValue = parseFloat(vendorForm.budget);
+      if (isNaN(budgetValue) || budgetValue <= 0) {
+        setFormError('Budget must be a valid positive number');
+        return;
+      }
+      
       // Prepare vendor data
       const vendorData = {
         name: vendorForm.name.trim(),
         email: vendorForm.email.trim(),
         phone: vendorForm.phone.trim(),
-        services: vendorForm.services.trim(),
-        rate: vendorForm.rate.trim(),
-        rating: vendorForm.rating,
+        companyName: vendorForm.companyName.trim(),
+        description: vendorForm.description.trim(),
+        website: vendorForm.website.trim(),
+        address: vendorForm.address.trim(),
+        budget: vendorForm.budget.trim(),
         status: vendorForm.status,
         updatedAt: new Date()
       };
@@ -131,9 +173,11 @@ const VendorManagement = () => {
       name: '',
       email: '',
       phone: '',
-      services: '',
-      rate: '',
-      rating: '',
+      companyName: '',
+      description: '',
+      website: '',
+      address: '',
+      budget: '',
       status: 'Active'
     });
     setIsEditing(false);
@@ -164,9 +208,11 @@ const VendorManagement = () => {
       name: vendor.name || '',
       email: vendor.email || '',
       phone: vendor.phone || '',
-      services: vendor.services || '',
-      rate: vendor.rate || '',
-      rating: vendor.rating || '',
+      companyName: vendor.companyName || '',
+      description: vendor.description || '',
+      website: vendor.website || '',
+      address: vendor.address || '',
+      budget: vendor.budget || '',
       status: vendor.status || 'Active'
     });
     setShowModal(true);
@@ -194,36 +240,6 @@ const VendorManagement = () => {
     }
   };
 
-  // Function to get rating stars
-  const getRatingStars = (rating) => {
-    const numRating = parseFloat(rating) || 0;
-    const fullStars = Math.floor(numRating);
-    const hasHalfStar = numRating % 1 >= 0.5;
-    
-    return (
-      <div className="flex items-center">
-        {[...Array(5)].map((_, i) => (
-          <svg
-            key={i}
-            xmlns="http://www.w3.org/2000/svg"
-            className={`h-4 w-4 ${
-              i < fullStars 
-                ? 'text-yellow-500' 
-                : (i === fullStars && hasHalfStar 
-                  ? 'text-yellow-500' 
-                  : 'text-gray-300')
-            }`}
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-          </svg>
-        ))}
-        <span className="ml-1 text-sm text-gray-600">{numRating.toFixed(1)}</span>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6">
       <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -237,9 +253,21 @@ const VendorManagement = () => {
           </button>
         </div>
         <div className="p-5">
+          {/* Search input */}
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search vendors by name, company, or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          
           {loading ? (
             <div className="text-center py-4">
-              <p>Loading vendors...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto"></div>
+              <p className="mt-2 text-gray-500">Loading vendors...</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -248,26 +276,25 @@ const VendorManagement = () => {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Info</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Services</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rate</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Budget</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {vendors.length > 0 ? (
-                    vendors.map((vendor) => (
+                  {filteredVendors.length > 0 ? (
+                    filteredVendors.map((vendor) => (
                       <tr key={vendor.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{vendor.name}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div>{vendor.email}</div>
-                          <div>{vendor.phone}</div>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{vendor.name}</div>
+                          <div className="text-sm text-gray-500">{vendor.companyName}</div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">{vendor.services}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vendor.rate}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{vendor.email}</div>
+                          <div className="text-sm text-gray-500">{vendor.phone}</div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {getRatingStars(vendor.rating)}
+                          ${vendor.budget}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadgeClass(vendor.status)}`}>
@@ -292,8 +319,8 @@ const VendorManagement = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
-                        No vendors found. Add your first vendor!
+                      <td colSpan="5" className="px-6 py-4 text-center text-sm text-gray-500">
+                        {searchQuery ? 'No vendors found matching your search.' : 'No vendors found. Add your first vendor!'}
                       </td>
                     </tr>
                   )}
@@ -320,7 +347,7 @@ const VendorManagement = () => {
             
             <form onSubmit={saveVendor}>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="col-span-2">
+                <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700">Vendor Name</label>
                   <input
                     type="text"
@@ -330,6 +357,18 @@ const VendorManagement = () => {
                     onChange={handleInputChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                     required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="companyName" className="block text-sm font-medium text-gray-700">Company Name</label>
+                  <input
+                    type="text"
+                    id="companyName"
+                    name="companyName"
+                    value={vendorForm.companyName}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
                 
@@ -355,32 +394,39 @@ const VendorManagement = () => {
                     value={vendorForm.phone}
                     onChange={handleInputChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    required
                   />
                 </div>
                 
-                <div className="col-span-2">
-                  <label htmlFor="services" className="block text-sm font-medium text-gray-700">Services Offered</label>
-                  <textarea
-                    id="services"
-                    name="services"
-                    rows="2"
-                    value={vendorForm.services}
-                    onChange={handleInputChange}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    placeholder="e.g. Catering, Photography, Equipment Rental"
-                  ></textarea>
+                <div>
+                  <label htmlFor="budget" className="block text-sm font-medium text-gray-700">Budget</label>
+                  <div className="mt-1 relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">$</span>
+                    </div>
+                    <input
+                      type="text"
+                      id="budget"
+                      name="budget"
+                      value={vendorForm.budget}
+                      onChange={handleInputChange}
+                      className="mt-1 block w-full pl-7 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
                 </div>
                 
                 <div>
-                  <label htmlFor="rate" className="block text-sm font-medium text-gray-700">Rate/Pricing</label>
+                  <label htmlFor="website" className="block text-sm font-medium text-gray-700">Website</label>
                   <input
-                    type="text"
-                    id="rate"
-                    name="rate"
-                    value={vendorForm.rate}
+                    type="url"
+                    id="website"
+                    name="website"
+                    value={vendorForm.website}
                     onChange={handleInputChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    placeholder="e.g. $1,000/event, $50/hour"
+                    placeholder="https://example.com"
                   />
                 </div>
                 
@@ -400,19 +446,29 @@ const VendorManagement = () => {
                   </select>
                 </div>
                 
-                <div>
-                  <label htmlFor="rating" className="block text-sm font-medium text-gray-700">Rating (0-5)</label>
+                <div className="sm:col-span-2">
+                  <label htmlFor="address" className="block text-sm font-medium text-gray-700">Address</label>
                   <input
-                    type="number"
-                    id="rating"
-                    name="rating"
-                    value={vendorForm.rating}
+                    type="text"
+                    id="address"
+                    name="address"
+                    value={vendorForm.address}
                     onChange={handleInputChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    min="0"
-                    max="5"
-                    step="0.1"
                   />
+                </div>
+                
+                <div className="sm:col-span-2">
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700">Description</label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    rows="3"
+                    value={vendorForm.description}
+                    onChange={handleInputChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    placeholder="Describe the vendor's services..."
+                  ></textarea>
                 </div>
               </div>
               
