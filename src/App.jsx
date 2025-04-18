@@ -1,12 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from "./context/AuthContext";
-import { ProtectedRoute, AdminRoute, MultiFacRoute } from "./components/ProtectedRoute";
+import { ProtectedRoute, AdminRoute } from "./components/ProtectedRoute";
 
 // Pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import MultiFacPage from './pages/MultiFacPage';
 import LandingPage from './pages/LandingPage';
 import UserProfilePage from './pages/UserProfilePage';
 import UserFeedbackPage from './pages/UserFeedbackPage';
@@ -22,13 +21,6 @@ const App = () => {
           {/* Public Routes */}
           <Route path="/" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
-          
-          {/* Multi-factor Authentication Route */}
-          <Route path="/2fa" element={
-            <MultiFacRoute>
-              <MultiFacPage />
-            </MultiFacRoute>
-          } />
           
           {/* Protected User Routes */}
           <Route path="/home" element={

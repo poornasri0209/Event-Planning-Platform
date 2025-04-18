@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,7 +50,7 @@ const Navbar = () => {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <Link to="/home" className="flex items-center">
+            <Link to={isAdmin ? "/admin/dashboard" : "/home"} className="flex items-center">
               <span className={`text-2xl font-bold ${isScrolled || !location.pathname.includes('/home') ? 'text-indigo-600' : 'text-white'}`}>
                 Sentiment Stories
               </span>
@@ -60,30 +60,51 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:block">
             <div className="ml-10 flex items-center space-x-8">
-              <Link 
-                to="/home" 
-                className={`${isActive('/home') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
-              >
-                Home
-              </Link>
-              <Link 
-                to="/events" 
-                className={`${isActive('/events') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
-              >
-                Events
-              </Link>
-              <Link 
-                to="/feedback" 
-                className={`${isActive('/feedback') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
-              >
-                Feedback
-              </Link>
-              <Link 
-                to="/testimonials" 
-                className={`${isActive('/testimonials') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
-              >
-                Testimonials
-              </Link>
+              {isAdmin ? (
+                // Admin Navigation Links
+                <>
+                  <Link 
+                    to="/admin/dashboard" 
+                    className={`${isActive('/admin/dashboard') ? 'text-indigo-600' : isScrolled ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                  >
+                    Dashboard
+                  </Link>
+                  <Link 
+                    to="/admin/profile" 
+                    className={`${isActive('/admin/profile') ? 'text-indigo-600' : isScrolled ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                  >
+                    Profile
+                  </Link>
+                </>
+              ) : (
+                // User Navigation Links
+                <>
+                  <Link 
+                    to="/home" 
+                    className={`${isActive('/home') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                  >
+                    Home
+                  </Link>
+                  <Link 
+                    to="/events" 
+                    className={`${isActive('/events') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                  >
+                    Events
+                  </Link>
+                  <Link 
+                    to="/feedback" 
+                    className={`${isActive('/feedback') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                  >
+                    Feedback
+                  </Link>
+                  <Link 
+                    to="/profile" 
+                    className={`${isActive('/profile') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                  >
+                    Profile
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -91,22 +112,13 @@ const Navbar = () => {
           <div className="hidden md:block">
             <div className="flex items-center space-x-4">
               {currentUser ? (
-                <>
-                  <Link 
-                    to="/profile" 
-                    className={`${isActive('/profile') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-indigo-600' : 'text-white'} font-medium hover:text-indigo-400 transition-colors flex items-center`}
-                  >
-                    <User size={16} className="mr-1" />
-                    Profile
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center space-x-1 bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-                  >
-                    <LogOut size={16} />
-                    <span>Logout</span>
-                  </button>
-                </>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-1 bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+                >
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </button>
               ) : (
                 <>
                   <Link 
@@ -146,70 +158,67 @@ const Navbar = () => {
       {isMenuOpen && (
         <div className="md:hidden bg-white shadow-lg">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <Link 
-              to="/home" 
-              className={`block px-3 py-2 rounded-md ${isActive('/home') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Home
-            </Link>
-            <Link 
-              to="/events" 
-              className={`block px-3 py-2 rounded-md ${isActive('/events') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Events
-            </Link>
-            <Link 
-              to="/feedback" 
-              className={`block px-3 py-2 rounded-md ${isActive('/feedback') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Feedback
-            </Link>
-            <Link 
-              to="/testimonials" 
-              className={`block px-3 py-2 rounded-md ${isActive('/testimonials') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Testimonials
-            </Link>
+            {isAdmin ? (
+              // Admin Mobile Navigation Links
+              <>
+                <Link 
+                  to="/admin/dashboard" 
+                  className={`block px-3 py-2 rounded-md ${isActive('/admin/dashboard') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <Link 
+                  to="/admin/profile" 
+                  className={`block px-3 py-2 rounded-md ${isActive('/admin/profile') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Profile
+                </Link>
+              </>
+            ) : (
+              // User Mobile Navigation Links
+              <>
+                <Link 
+                  to="/home" 
+                  className={`block px-3 py-2 rounded-md ${isActive('/home') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Home
+                </Link>
+                <Link 
+                  to="/events" 
+                  className={`block px-3 py-2 rounded-md ${isActive('/events') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Events
+                </Link>
+                <Link 
+                  to="/feedback" 
+                  className={`block px-3 py-2 rounded-md ${isActive('/feedback') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Feedback
+                </Link>
+                <Link 
+                  to="/profile" 
+                  className={`block px-3 py-2 rounded-md ${isActive('/profile') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Profile
+                </Link>
+              </>
+            )}
             
             <div className="pt-4 pb-2 border-t border-gray-200">
-              {currentUser ? (
-                <>
-                  <Link 
-                    to="/profile" 
-                    className={`block px-3 py-2 rounded-md ${isActive('/profile') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'} font-medium`}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Profile
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center px-3 py-2 mt-2 w-full text-left text-white bg-indigo-600 font-medium rounded-md hover:bg-indigo-700"
-                  >
-                    <LogOut size={16} className="mr-1" />
-                    <span>Logout</span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link 
-                    to="/" 
-                    className="block px-3 py-2 text-indigo-600 font-medium hover:bg-indigo-50 rounded-md"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Login
-                  </Link>
-                  <Link 
-                    to="/register" 
-                    className="block px-3 py-2 mt-2 bg-indigo-600 text-white font-medium rounded-md text-center hover:bg-indigo-700"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Get Started
-                  </Link>
-                </>
+              {currentUser && (
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center px-3 py-2 mt-2 w-full text-left text-white bg-indigo-600 font-medium rounded-md hover:bg-indigo-700"
+                >
+                  <LogOut size={16} className="mr-1" />
+                  <span>Logout</span>
+                </button>
               )}
             </div>
           </div>
