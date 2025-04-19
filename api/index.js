@@ -1,15 +1,23 @@
 const express = require('express');
-const router = express.Router();
+const cors = require('cors');
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Import your API routes
 const weatherMoodAdapter = require('./weatherMoodAdapter');
 const emotionalJourneyMapper = require('./emotionalJourneyMapper');
 
 // Mount the feature routers
-router.use('/weather-mood', weatherMoodAdapter);
-router.use('/emotional-journey', emotionalJourneyMapper);
+app.use('/weather-mood', weatherMoodAdapter);
+app.use('/emotional-journey', emotionalJourneyMapper);
 
 // Health check endpoint
-router.get('/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', features: ['weather-mood-adapter', 'emotional-journey-mapper'] });
 });
 
-module.exports = router;
+// Export for Vercel serverless function
+module.exports = app;
