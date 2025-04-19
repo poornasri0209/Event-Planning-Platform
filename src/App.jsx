@@ -9,6 +9,7 @@ import RegisterPage from './pages/RegisterPage';
 import LandingPage from './pages/LandingPage';
 import UserProfilePage from './pages/UserProfilePage';
 import UserFeedbackPage from './pages/UserFeedbackPage';
+import CommunicationPage from './pages/CommunicationPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminProfile from './pages/AdminProfile';
 import EventCreation from './pages/EventCreation';
@@ -36,6 +37,11 @@ const App = () => {
           <Route path="/feedback" element={
             <ProtectedRoute>
               <UserFeedbackPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/communicate" element={
+            <ProtectedRoute>
+              <CommunicationPage />
             </ProtectedRoute>
           } />
           <Route path="/events" element={

@@ -16,7 +16,8 @@ import {
   PieChart,
   Sliders,
   Package,
-  User
+  User,
+  MessageSquare
 } from 'lucide-react';
 
 // Import content components - all from the same directory
@@ -28,6 +29,7 @@ import ResourceManagement from './ResourceManagement';
 import FinancialManagement from './FinancialManagement';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import SystemSettings from './SystemSettings';
+import CommunicationsManagement from './CommunicationsManagement';
 import AdminProfile from './AdminProfile';
 
 // Fallback component for missing components
@@ -52,6 +54,7 @@ const AdminDashboardPage = () => {
     { name: 'Vendors', icon: Briefcase },
     { name: 'Resources', icon: Package },
     { name: 'Finances', icon: DollarSign },
+    { name: 'Communications', icon: MessageSquare },
     { name: 'Analytics', icon: PieChart },
     { name: 'Settings', icon: Sliders },
     { name: 'Profile', icon: User },
@@ -82,6 +85,8 @@ const AdminDashboardPage = () => {
         return ResourceManagement ? <ResourceManagement /> : <FallbackComponent name="Resource Management" />;
       case 'Finances':
         return FinancialManagement ? <FinancialManagement /> : <FallbackComponent name="Financial Management" />;
+      case 'Communications':
+        return CommunicationsManagement ? <CommunicationsManagement /> : <FallbackComponent name="Communications Management" />;
       case 'Analytics':
         return AnalyticsDashboard ? <AnalyticsDashboard /> : <FallbackComponent name="Analytics Dashboard" />;
       case 'Settings':

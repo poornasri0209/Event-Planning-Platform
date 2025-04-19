@@ -81,7 +81,7 @@ const Navbar = () => {
                 <>
                   <Link 
                     to="/home" 
-                    className={`${isActive('/home') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                    className={`${isActive('/home') ? 'text-white' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
                   >
                     Home
                   </Link>
@@ -97,6 +97,12 @@ const Navbar = () => {
                   >
                     Feedback
                   </Link>
+                  <Link 
+                to="/communicate" 
+                className={`${isActive('/communicate') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+              >
+                Communicate
+              </Link>
                   <Link 
                     to="/profile" 
                     className={`${isActive('/profile') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
