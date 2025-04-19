@@ -9,7 +9,7 @@ The project addresses the complexities and inefficiencies of traditional event p
 - Emotional Journey Mapper: Designs event flow to evoke specific emotional experiences, ensuring a lasting impression.
 
 ## 💫 Reamaining Features:
-- User and Admin's Login and Registration (2 Factor Authentication).
+- User and Admin's Login and Registration 
 - User Profile Management
 - User Feedback system
 - User Events :  which include Event Creation , Event Tracking , Event Details page , Event analytics and reports and Archive history
