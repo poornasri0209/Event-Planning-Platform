@@ -4,8 +4,10 @@ import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute, AdminRoute } from "./components/ProtectedRoute";
 
 // Pages
+// Pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import MultiFacPage from './pages/MultiFacPage';
 import LandingPage from './pages/LandingPage';
 import UserProfilePage from './pages/UserProfilePage';
 import UserFeedbackPage from './pages/UserFeedbackPage';
@@ -13,6 +15,8 @@ import CommunicationPage from './pages/CommunicationPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminProfile from './pages/AdminProfile';
 import EventCreation from './pages/EventCreation';
+import MyEventsPage from './pages/MyEventsPage';
+import EventDetailsPage from './pages/EventDetailsPage';
 
 const App = () => {
   return (
@@ -47,6 +51,16 @@ const App = () => {
           <Route path="/events" element={
             <ProtectedRoute>
               <EventCreation />
+            </ProtectedRoute>
+          } />
+          <Route path="/myevents" element={
+            <ProtectedRoute>
+              <MyEventsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/myevents/:eventId" element={
+            <ProtectedRoute>
+              <EventDetailsPage />
             </ProtectedRoute>
           } />
           

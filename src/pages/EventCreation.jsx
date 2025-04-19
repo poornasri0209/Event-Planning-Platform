@@ -1,8 +1,3 @@
-
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -29,20 +24,28 @@ import {
   Link,
   Globe,
   MessageSquare,
-  AlertCircle
+  AlertCircle,
+  Briefcase,
+  Package,
+  Check
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
-import Navbar from "../components/Navbar"
+import Navbar from "../components/Navbar";
 
 const EventCreation = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [formStep, setFormStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [userEvents, setUserEvents] = useState([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [vendors, setVendors] = useState([]);
+  const [resources, setResources] = useState([]);
+  const [loadingVendors, setLoadingVendors] = useState(true);
+  const [loadingResources, setLoadingResources] = useState(true);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  
   const [paymentInfo, setPaymentInfo] = useState({
     cardNumber: '',
     cardName: '',
@@ -67,9 +70,14 @@ const EventCreation = () => {
     tags: [],
     weatherAdapter: false,
     emotionalJourney: false,
+    selectedVendor: '',
+    selectedResources: [],
+    vendorBudget: '',
+    resourcesBudget: '',
     paymentStatus: 'pending',
+    status: 'In Progress',
     createdBy: currentUser?.uid || '',
-    // New fields
+    // Additional fields
     contactEmail: '',
     contactPhone: '',
     website: '',
@@ -92,47 +100,55 @@ const EventCreation = () => {
   const [tagInput, setTagInput] = useState('');
   const [formErrors, setFormErrors] = useState({});
   
-  // Fetch user's events
+  // Fetch vendors and resources
   useEffect(() => {
-    const fetchUserEvents = async () => {
-      if (!currentUser) {
-        setLoadingEvents(false);
-        return;
-      }
+    fetchVendors();
+    fetchResources();
+  }, []);
+
+  // Calculate total payment whenever relevant fields change
+  useEffect(() => {
+    calculateTotalAmount();
+  }, [formData.weatherAdapter, formData.emotionalJourney, formData.vendorBudget, formData.resourcesBudget]);
+  
+  const fetchVendors = async () => {
+    try {
+      setLoadingVendors(true);
+      const vendorsCollection = collection(db, 'vendors');
+      const querySnapshot = await getDocs(vendorsCollection);
       
-      try {
-        // Simpler query without ordering to avoid index issues
-        const eventsRef = collection(db, 'events');
-        const q = query(
-          eventsRef, 
-          where('createdBy', '==', currentUser.uid)
-        );
-        
-        const querySnapshot = await getDocs(q);
-        const events = [];
-        querySnapshot.forEach((doc) => {
-          events.push({
-            id: doc.id,
-            ...doc.data()
-          });
-        });
-        
-        // Sort events client-side instead of using Firestore ordering
-        events.sort((a, b) => {
-          if (!a.createdAt || !b.createdAt) return 0;
-          return b.createdAt.seconds - a.createdAt.seconds;
-        });
-        
-        setUserEvents(events);
-      } catch (error) {
-        console.error('Error fetching events:', error);
-      } finally {
-        setLoadingEvents(false);
-      }
-    };
-    
-    fetchUserEvents();
-  }, [currentUser]);
+      const fetchedVendors = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setVendors(fetchedVendors);
+      setLoadingVendors(false);
+    } catch (error) {
+      console.error('Error fetching vendors:', error);
+      setLoadingVendors(false);
+    }
+  };
+  
+  const fetchResources = async () => {
+    try {
+      setLoadingResources(true);
+      const resourcesCollection = collection(db, 'resources');
+      const querySnapshot = await getDocs(resourcesCollection);
+      
+      const fetchedResources = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        isSelected: false
+      }));
+      
+      setResources(fetchedResources);
+      setLoadingResources(false);
+    } catch (error) {
+      console.error('Error fetching resources:', error);
+      setLoadingResources(false);
+    }
+  };
   
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -154,12 +170,6 @@ const EventCreation = () => {
       });
     }
     
-    // Update package price based on features
-    if (name === 'weatherAdapter' || name === 'emotionalJourney') {
-      calculatePackagePrice(name === 'weatherAdapter' ? checked : formData.weatherAdapter, 
-                            name === 'emotionalJourney' ? checked : formData.emotionalJourney);
-    }
-    
     // Clear error when field is updated
     if (formErrors[name]) {
       setFormErrors({
@@ -167,6 +177,89 @@ const EventCreation = () => {
         [name]: ''
       });
     }
+  };
+  
+  const handleVendorChange = (e) => {
+    const vendorId = e.target.value;
+    
+    // Find the selected vendor to get their budget
+    const selectedVendor = vendors.find(vendor => vendor.id === vendorId);
+    const vendorBudget = selectedVendor ? selectedVendor.budget : '';
+    
+    setFormData({
+      ...formData,
+      selectedVendor: vendorId,
+      vendorBudget: vendorBudget
+    });
+  };
+  
+  const handleResourceChange = (resourceId) => {
+    let updatedResources = [...formData.selectedResources];
+    
+    if (updatedResources.includes(resourceId)) {
+      // Remove resource if already selected
+      updatedResources = updatedResources.filter(id => id !== resourceId);
+    } else {
+      // Add resource if not already selected
+      updatedResources.push(resourceId);
+    }
+    
+    // Calculate total resources budget
+    const resourcesBudget = calculateResourcesBudget(updatedResources);
+    
+    setFormData({
+      ...formData,
+      selectedResources: updatedResources,
+      resourcesBudget: resourcesBudget
+    });
+  };
+  
+  const calculateResourcesBudget = (selectedResourceIds) => {
+    let total = 0;
+    
+    // Sum up the value of each selected resource
+    selectedResourceIds.forEach(resourceId => {
+      const resource = resources.find(r => r.id === resourceId);
+      if (resource && resource.value) {
+        // Remove $ sign and convert to number
+        const value = parseFloat(resource.value.replace(/[^0-9.-]+/g, ""));
+        if (!isNaN(value)) {
+          total += value;
+        }
+      }
+    });
+    
+    return total.toFixed(2);
+  };
+  
+  const calculateTotalAmount = () => {
+    let total = 0;
+    
+    // Add AI features costs
+    if (formData.weatherAdapter) total += 99;
+    if (formData.emotionalJourney) total += 149;
+    
+    // Add vendor budget
+    if (formData.vendorBudget) {
+      const vendorBudget = parseFloat(formData.vendorBudget.replace(/[^0-9.-]+/g, ""));
+      if (!isNaN(vendorBudget)) {
+        total += vendorBudget;
+      }
+    }
+    
+    // Add resources budget
+    if (formData.resourcesBudget) {
+      const resourcesBudget = parseFloat(formData.resourcesBudget);
+      if (!isNaN(resourcesBudget)) {
+        total += resourcesBudget;
+      }
+    }
+    
+    // Update payment amount
+    setPaymentInfo({
+      ...paymentInfo,
+      amount: total.toFixed(2)
+    });
   };
   
   const handlePaymentChange = (e) => {
@@ -204,17 +297,6 @@ const EventCreation = () => {
         [name]: ''
       });
     }
-  };
-  
-  const calculatePackagePrice = (weatherEnabled, emotionalEnabled) => {
-    let basePrice = 0;
-    if (weatherEnabled) basePrice += 99;
-    if (emotionalEnabled) basePrice += 149;
-    
-    setPaymentInfo({
-      ...paymentInfo,
-      amount: basePrice.toFixed(2)
-    });
   };
   
   const handleTagAdd = () => {
@@ -286,31 +368,78 @@ const EventCreation = () => {
     window.scrollTo(0, 0);
   };
   
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const processPayment = () => {
     if (!validateForm()) {
       return;
     }
     
-    setLoading(true);
+    setProcessingPayment(true);
     
+    // Simulate payment processing
+    setTimeout(() => {
+      setProcessingPayment(false);
+      setPaymentSuccess(true);
+      
+      // After showing success message, submit the form
+      setTimeout(() => {
+        handleSubmit();
+      }, 1500);
+    }, 3000);
+  };
+  
+  const handleSubmit = async () => {
     try {
+      setLoading(true);
+      
+      // Prepare selected vendor data
+      let vendorData = null;
+      if (formData.selectedVendor) {
+        const vendorRef = doc(db, 'vendors', formData.selectedVendor);
+        const vendorDoc = await getDoc(vendorRef);
+        if (vendorDoc.exists()) {
+          vendorData = {
+            id: vendorDoc.id,
+            name: vendorDoc.data().name,
+            companyName: vendorDoc.data().companyName,
+            email: vendorDoc.data().email,
+            phone: vendorDoc.data().phone,
+            budget: vendorDoc.data().budget
+          };
+        }
+      }
+      
+      // Prepare selected resources data
+      const resourcesData = [];
+      for (const resourceId of formData.selectedResources) {
+        const resourceRef = doc(db, 'resources', resourceId);
+        const resourceDoc = await getDoc(resourceRef);
+        if (resourceDoc.exists()) {
+          resourcesData.push({
+            id: resourceDoc.id,
+            name: resourceDoc.data().name,
+            type: resourceDoc.data().type,
+            value: resourceDoc.data().value
+          });
+        }
+      }
+      
       // Add event to Firestore
       const eventData = {
         ...formData,
+        vendor: vendorData,
+        resources: resourcesData,
         createdBy: currentUser?.uid || 'anonymous',
+        userEmail: currentUser?.email || 'anonymous',
         createdAt: serverTimestamp(),
-        paymentStatus: 'completed', // In a real app, this would be updated after actual payment processing
+        paymentStatus: 'completed',
         paymentAmount: parseFloat(paymentInfo.amount) || 0
       };
       
       const docRef = await addDoc(collection(db, 'events'), eventData);
       console.log('Event created with ID:', docRef.id);
       
-      // Show success message and redirect to home page
-      alert('Event created successfully!');
-      navigate('/events'); // Navigate to home page
+      // Navigate to my events page
+      navigate('/myevents');
       
     } catch (error) {
       console.error('Error creating event:', error);
@@ -330,6 +459,14 @@ const EventCreation = () => {
     ) : null;
   };
 
+  // Format currency
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
       <Navbar />
@@ -347,68 +484,6 @@ const EventCreation = () => {
             </button>
             <h1 className="text-2xl font-bold text-gray-900">Create New Event</h1>
             <div className="w-20"></div> {/* Spacer for centering */}
-          </div>
-          
-          {/* Your Events Section */}
-          <div className="bg-white shadow-lg rounded-lg mb-8 overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600">
-              <h2 className="text-xl font-semibold text-white">Your Events</h2>
-            </div>
-            
-            <div className="p-6">
-              {loadingEvents ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-indigo-500 border-solid mx-auto"></div>
-                  <p className="mt-2 text-gray-600">Loading your events...</p>
-                </div>
-              ) : userEvents.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {userEvents.slice(0, 3).map(event => (
-                    <div key={event.id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                      <div className="h-32 bg-gray-200 relative">
-                        {event.imageUrl ? (
-                          <img
-                            src={event.imageUrl}
-                            alt={event.eventName}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center h-full bg-gray-100">
-                            <Calendar className="h-10 w-10 text-gray-400" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-medium text-gray-900 mb-1">{event.eventName}</h3>
-                        <p className="text-sm text-gray-500 mb-2">
-                          {new Date(event.startDate).toLocaleDateString()}
-                        </p>
-                        <button 
-                          onClick={() => navigate(`/events/${event.id}`)}
-                          className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center"
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-600 py-4">You haven't created any events yet. Start by creating your first event below!</p>
-              )}
-              
-              {userEvents.length > 3 && (
-                <div className="mt-4 text-center">
-                  <button
-                    onClick={() => navigate('/events')}
-                    className="text-indigo-600 hover:text-indigo-800 font-medium"
-                  >
-                    View All Events
-                  </button>
-                </div>
-              )}
-            </div>
           </div>
           
           {/* Step indicators */}
@@ -443,7 +518,7 @@ const EventCreation = () => {
                   </div>
                   <div className="flex justify-between mt-2 text-xs text-gray-600">
                     <div className="text-center w-24">Event Details</div>
-                    <div className="text-center w-24">AI Features</div>
+                    <div className="text-center w-24">Vendors & Resources</div>
                     <div className="text-center w-24">Payment</div>
                   </div>
                 </div>
@@ -451,7 +526,7 @@ const EventCreation = () => {
             </div>
           </div>
           
-          <form onSubmit={handleSubmit}>
+          <form>
             {/* Step 1: Event Information */}
             {formStep === 1 && (
               <div className="bg-white shadow-lg rounded-lg overflow-hidden">
@@ -650,7 +725,7 @@ const EventCreation = () => {
                     
                     <div>
                       <label htmlFor="budget" className="block text-sm font-medium text-gray-700 mb-1">
-                        Budget
+                        Overall Budget
                       </label>
                       <div className="relative rounded-md shadow-sm">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -962,130 +1037,214 @@ const EventCreation = () => {
                     onClick={nextStep}
                     className="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                   >
-                    Next: AI Features
+                    Next: Vendors & Resources
                   </button>
                 </div>
               </div>
             )}
             
-            {/* Step 2: AI Features */}
+            {/* Step 2: Vendors & Resources + AI Features */}
             {formStep === 2 && (
               <div className="bg-white shadow-lg rounded-lg overflow-hidden">
                 <div className="px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 border-b border-gray-200">
-                  <h3 className="text-xl font-semibold text-white">AI-Enhanced Event Experience</h3>
+                  <h3 className="text-xl font-semibold text-white">Vendors, Resources & AI Features</h3>
                 </div>
                 
                 <div className="p-6 space-y-8">
-                  <div className="text-center mb-6">
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">Enhance your event with our AI-powered features</h4>
-                    <p className="text-gray-600">
-                      Our unique AI capabilities can transform your event into an unforgettable experience by optimizing emotional impact and attendee satisfaction.
-                    </p>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className={`border rounded-lg p-6 transition-all ${formData.weatherAdapter ? 'bg-blue-50 border-blue-200 shadow-md' : 'bg-white border-gray-200 hover:border-blue-200 hover:shadow-sm'}`}>
-                      <div className="flex">
-                        <div className={`rounded-full p-3 ${formData.weatherAdapter ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
-                          <Cloud className="h-6 w-6" />
-                        </div>
-                        <div className="ml-4">
-                          <div className="flex items-center justify-between">
-                            <h3 className={`text-lg font-medium ${formData.weatherAdapter ? 'text-blue-800' : 'text-gray-900'}`}>
-                              Weather-Mood Adapter
-                            </h3>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                              $99
-                            </span>
-                          </div>
-                          <p className={`mt-2 text-sm ${formData.weatherAdapter ? 'text-blue-700' : 'text-gray-500'}`}>
-                            Our AI will analyze weather patterns for your event dates and suggest optimal settings to enhance attendee experience based on predicted weather conditions.
-                          </p>
-                          <div className="mt-4 flex items-center">
-                            <input
-                              id="weatherAdapter"
-                              name="weatherAdapter"
-                              type="checkbox"
-                              checked={formData.weatherAdapter}
-                              onChange={handleChange}
-                              className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor="weatherAdapter" className="ml-2 block text-sm text-gray-700">
-                              Add to my event
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {formData.weatherAdapter && (
-                        <div className="mt-6 bg-white border border-blue-100 rounded-md p-4">
-                          <h4 className="text-sm font-medium text-blue-800 mb-2">How it works:</h4>
-                          <ol className="list-decimal text-sm text-gray-600 pl-5 space-y-1">
-                            <li>Our AI analyzes historical and predicted weather data for your event dates and location</li>
-                            <li>We generate mood optimization recommendations based on expected weather conditions</li>
-                            <li>Receive suggestions for lighting, music, activities, and even menu items that will create the perfect atmosphere</li>
-                            <li>Includes real-time adjustments and a weather contingency plan</li>
-                          </ol>
-                        </div>
-                      )}
-                    </div>
+                  {/* Vendor Selection */}
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-4">Select a Vendor</h4>
                     
-                    <div className={`border rounded-lg p-6 transition-all ${formData.emotionalJourney ? 'bg-purple-50 border-purple-200 shadow-md' : 'bg-white border-gray-200 hover:border-purple-200 hover:shadow-sm'}`}>
-                      <div className="flex">
-                        <div className={`rounded-full p-3 ${formData.emotionalJourney ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
-                          <Smile className="h-6 w-6" />
-                        </div>
-                        <div className="ml-4">
-                          <div className="flex items-center justify-between">
-                            <h3 className={`text-lg font-medium ${formData.emotionalJourney ? 'text-purple-800' : 'text-gray-900'}`}>
-                              Emotional Journey Mapper
-                            </h3>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                              $149
-                            </span>
-                          </div>
-                          <p className={`mt-2 text-sm ${formData.emotionalJourney ? 'text-purple-700' : 'text-gray-500'}`}>
-                            Design your event flow to create specific emotional experiences. Our AI suggests an emotional journey based on your event type and goals.
-                          </p>
-                          <div className="mt-4 flex items-center">
-                            <input
-                              id="emotionalJourney"
-                              name="emotionalJourney"
-                              type="checkbox"
-                              checked={formData.emotionalJourney}
-                              onChange={handleChange}
-                              className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                            />
-                            <label htmlFor="emotionalJourney" className="ml-2 block text-sm text-gray-700">
-                              Add to my event
-                            </label>
-                          </div>
-                        </div>
+                    {loadingVendors ? (
+                      <div className="flex justify-center items-center h-20">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-b-4 border-indigo-500"></div>
                       </div>
-                      
-                      {formData.emotionalJourney && (
-                        <div className="mt-6 bg-white border border-purple-100 rounded-md p-4">
-                          <h4 className="text-sm font-medium text-purple-800 mb-2">How it works:</h4>
-                          <ol className="list-decimal text-sm text-gray-600 pl-5 space-y-1">
-                            <li>Our AI maps out a complete emotional journey tailored to your event goals</li>
-                            <li>Receive a detailed schedule with carefully designed emotional touchpoints</li>
-                            <li>Get specific recommendations for music, lighting, speaking patterns, and interactive elements</li>
-                            <li>Includes personalization options for different audience segments</li>
-                            <li>Post-event analysis and emotional impact reporting</li>
-                          </ol>
-                        </div>
-                      )}
-                    </div>
+                    ) : vendors.length > 0 ? (
+                      <div>
+                        <select
+                          name="selectedVendor"
+                          value={formData.selectedVendor}
+                          onChange={handleVendorChange}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
+                        >
+                          <option value="">Select a vendor...</option>
+                          {vendors.map(vendor => (
+                            <option key={vendor.id} value={vendor.id}>
+                              {vendor.name} ({vendor.companyName}) - {vendor.budget}
+                            </option>
+                          ))}
+                        </select>
+                        
+                        {formData.selectedVendor && (
+                          <div className="mt-4 bg-gray-50 p-4 rounded-md">
+                            <p className="text-sm text-gray-600">
+                              Selected vendor budget: <span className="font-medium">{formData.vendorBudget}</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500">No vendors available.</p>
+                    )}
                   </div>
                   
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
-                    <div className="flex">
-                      <CheckCircle className="h-5 w-5 text-indigo-500 mt-0.5" />
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-indigo-800">Premium Benefits</h3>
-                        <p className="mt-1 text-sm text-indigo-700">
-                          All AI features include personalized consultation with our event experience experts, detailed documentation, and post-event success measurement.
-                        </p>
+                  {/* Resources Selection */}
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-4">Select Resources</h4>
+                    
+                    {loadingResources ? (
+                      <div className="flex justify-center items-center h-20">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-b-4 border-indigo-500"></div>
+                      </div>
+                    ) : resources.length > 0 ? (
+                      <div>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          {resources.map(resource => (
+                            <div 
+                              key={resource.id} 
+                              className={`border rounded-lg p-4 cursor-pointer transition-colors ${
+                                formData.selectedResources.includes(resource.id)
+                                  ? 'border-indigo-500 bg-indigo-50'
+                                  : 'border-gray-200 hover:border-indigo-300'
+                              }`}
+                              onClick={() => handleResourceChange(resource.id)}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <h5 className="font-medium text-gray-900">{resource.name}</h5>
+                                  <p className="text-sm text-gray-500">{resource.type}</p>
+                                  <p className="text-sm text-gray-700 mt-1">Value: {resource.value || 'N/A'}</p>
+                                </div>
+                                <div className={`h-5 w-5 rounded-full flex items-center justify-center ${
+                                  formData.selectedResources.includes(resource.id)
+                                    ? 'bg-indigo-500 text-white'
+                                    : 'border border-gray-300'
+                                }`}>
+                                  {formData.selectedResources.includes(resource.id) && (
+                                    <Check className="h-3 w-3" />
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {resource.description && (
+                                <p className="mt-2 text-xs text-gray-500 line-clamp-2">{resource.description}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {formData.selectedResources.length > 0 && (
+                          <div className="mt-4 bg-gray-50 p-4 rounded-md">
+                            <p className="text-sm text-gray-600">
+                              Selected resources: <span className="font-medium">{formData.selectedResources.length}</span>
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Total resources budget: <span className="font-medium">${formData.resourcesBudget}</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500">No resources available.</p>
+                    )}
+                  </div>
+                  
+                  {/* AI Features */}
+                  <div>
+                    <h4 className="text-lg font-medium text-gray-900 mb-4">Enhanced AI Features</h4>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className={`border rounded-lg p-6 transition-all ${formData.weatherAdapter ? 'bg-blue-50 border-blue-200 shadow-md' : 'bg-white border-gray-200 hover:border-blue-200 hover:shadow-sm'}`}>
+                        <div className="flex">
+                          <div className={`rounded-full p-3 ${formData.weatherAdapter ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                            <Cloud className="h-6 w-6" />
+                          </div>
+                          <div className="ml-4">
+                            <div className="flex items-center justify-between">
+                              <h3 className={`text-lg font-medium ${formData.weatherAdapter ? 'text-blue-800' : 'text-gray-900'}`}>
+                                Weather-Mood Adapter
+                              </h3>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                $99
+                              </span>
+                            </div>
+                            <p className={`mt-2 text-sm ${formData.weatherAdapter ? 'text-blue-700' : 'text-gray-500'}`}>
+                              Our AI will analyze weather patterns for your event dates and suggest optimal settings to enhance attendee experience based on predicted weather conditions.
+                            </p>
+                            <div className="mt-4 flex items-center">
+                              <input
+                                id="weatherAdapter"
+                                name="weatherAdapter"
+                                type="checkbox"
+                                checked={formData.weatherAdapter}
+                                onChange={handleChange}
+                                className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                              />
+                              <label htmlFor="weatherAdapter" className="ml-2 block text-sm text-gray-700">
+                                Add to my event
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {formData.weatherAdapter && (
+                          <div className="mt-6 bg-white border border-blue-100 rounded-md p-4">
+                            <h4 className="text-sm font-medium text-blue-800 mb-2">How it works:</h4>
+                            <ol className="list-decimal text-sm text-gray-600 pl-5 space-y-1">
+                              <li>Our AI analyzes historical and predicted weather data for your event dates and location</li>
+                              <li>We generate mood optimization recommendations based on expected weather conditions</li>
+                              <li>Receive suggestions for lighting, music, activities, and even menu items that will create the perfect atmosphere</li>
+                              <li>Includes real-time adjustments and a weather contingency plan</li>
+                            </ol>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className={`border rounded-lg p-6 transition-all ${formData.emotionalJourney ? 'bg-purple-50 border-purple-200 shadow-md' : 'bg-white border-gray-200 hover:border-purple-200 hover:shadow-sm'}`}>
+                        <div className="flex">
+                          <div className={`rounded-full p-3 ${formData.emotionalJourney ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-500'}`}>
+                            <Smile className="h-6 w-6" />
+                          </div>
+                          <div className="ml-4">
+                            <div className="flex items-center justify-between">
+                              <h3 className={`text-lg font-medium ${formData.emotionalJourney ? 'text-purple-800' : 'text-gray-900'}`}>
+                                Emotional Journey Mapper
+                              </h3>
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                $149
+                              </span>
+                            </div>
+                            <p className={`mt-2 text-sm ${formData.emotionalJourney ? 'text-purple-700' : 'text-gray-500'}`}>
+                              Design your event flow to create specific emotional experiences. Our AI suggests an emotional journey based on your event type and goals.
+                            </p>
+                            <div className="mt-4 flex items-center">
+                              <input
+                                id="emotionalJourney"
+                                name="emotionalJourney"
+                                type="checkbox"
+                                checked={formData.emotionalJourney}
+                                onChange={handleChange}
+                                className="h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                              />
+                              <label htmlFor="emotionalJourney" className="ml-2 block text-sm text-gray-700">
+                                Add to my event
+                              </label>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {formData.emotionalJourney && (
+                          <div className="mt-6 bg-white border border-purple-100 rounded-md p-4">
+                            <h4 className="text-sm font-medium text-purple-800 mb-2">How it works:</h4>
+                            <ol className="list-decimal text-sm text-gray-600 pl-5 space-y-1">
+                              <li>Our AI maps out a complete emotional journey tailored to your event goals</li>
+                              <li>Receive a detailed schedule with carefully designed emotional touchpoints</li>
+                              <li>Get specific recommendations for music, lighting, speaking patterns, and interactive elements</li>
+                              <li>Includes personalization options for different audience segments</li>
+                              <li>Post-event analysis and emotional impact reporting</li>
+                            </ol>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1117,172 +1276,202 @@ const EventCreation = () => {
                   <h3 className="text-xl font-semibold text-white">Payment</h3>
                 </div>
                 
-                <div className="p-6 space-y-6">
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 shadow-sm">
-                    <h4 className="text-lg font-medium text-gray-900 mb-2">Order Summary</h4>
-                    <div className="border-t border-b border-gray-200 py-4 my-4">
-                      <div className="flex justify-between text-sm text-gray-500 mb-2">
-                        <span>Event Creation (Basic)</span>
-                        <span>$0.00</span>
+                {paymentSuccess ? (
+                  <div className="p-10 flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                      <CheckCircle className="h-10 w-10 text-green-500" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Payment Successful!</h2>
+                    <p className="text-gray-600 text-center mb-6">
+                      Your event has been created and your payment has been processed successfully.
+                    </p>
+                    <p className="text-gray-500 text-center">
+                      You will be redirected to view your events shortly...
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-6 space-y-6">
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 shadow-sm">
+                      <h4 className="text-lg font-medium text-gray-900 mb-2">Order Summary</h4>
+                      <div className="border-t border-b border-gray-200 py-4 my-4">
+                        {formData.weatherAdapter && (
+                          <div className="flex justify-between text-sm mb-2">
+                            <span>Weather-Mood Adapter</span>
+                            <span>$99.00</span>
+                          </div>
+                        )}
+                        
+                        {formData.emotionalJourney && (
+                          <div className="flex justify-between text-sm mb-2">
+                            <span>Emotional Journey Mapper</span>
+                            <span>$149.00</span>
+                          </div>
+                        )}
+                        
+                        {formData.selectedVendor && (
+                          <div className="flex justify-between text-sm mb-2">
+                            <span>Vendor: {vendors.find(v => v.id === formData.selectedVendor)?.name}</span>
+                            <span>{formData.vendorBudget}</span>
+                          </div>
+                        )}
+                        
+                        {formData.selectedResources.length > 0 && (
+                          <div className="flex justify-between text-sm mb-2">
+                            <span>Resources ({formData.selectedResources.length})</span>
+                            <span>${formData.resourcesBudget}</span>
+                          </div>
+                        )}
                       </div>
                       
-                      {formData.weatherAdapter && (
-                        <div className="flex justify-between text-sm mb-2">
-                          <span>Weather-Mood Adapter</span>
-                          <span>$99.00</span>
-                        </div>
-                      )}
-                      
-                      {formData.emotionalJourney && (
-                        <div className="flex justify-between text-sm mb-2">
-                          <span>Emotional Journey Mapper</span>
-                          <span>$149.00</span>
-                        </div>
-                      )}
+                      <div className="flex justify-between font-medium text-lg">
+                        <span>Total</span>
+                        <span className="text-indigo-600">${paymentInfo.amount}</span>
+                      </div>
                     </div>
                     
-                    <div className="flex justify-between font-medium text-lg">
-                      <span>Total</span>
-                      <span className="text-indigo-600">${paymentInfo.amount}</span>
-                    </div>
-                  </div>
-                  
-                  {parseFloat(paymentInfo.amount) > 0 ? (
-                    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                      <h4 className="text-lg font-medium text-gray-900 mb-4">Payment Information</h4>
-                      
-                      <div className="space-y-6">
-                        <div>
-                          <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
-                            Card Number
-                          </label>
-                          <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <CreditCard className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                              type="text"
-                              name="cardNumber"
-                              id="cardNumber"
-                              value={paymentInfo.cardNumber}
-                              onChange={handlePaymentChange}
-                              placeholder="1234 5678 9012 3456"
-                              className={`w-full block pl-10 pr-10 py-3 sm:text-sm border ${formErrors.cardNumber ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'} rounded-md`}
-                              required={parseFloat(paymentInfo.amount) > 0}
-                            />
-                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                              <Lock className="h-4 w-4 text-gray-400" />
-                            </div>
-                          </div>
-                          <ErrorMessage name="cardNumber" />
-                        </div>
+                    {parseFloat(paymentInfo.amount) > 0 ? (
+                      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <h4 className="text-lg font-medium text-gray-900 mb-4">Payment Information</h4>
                         
-                        <div>
-                          <label htmlFor="cardName" className="block text-sm font-medium text-gray-700 mb-1">
-                            Name on Card
-                          </label>
-                          <input
-                            type="text"
-                            name="cardName"
-                            id="cardName"
-                            value={paymentInfo.cardName}
-                            onChange={handlePaymentChange}
-                            className={`w-full block py-3 sm:text-sm border ${formErrors.cardName ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'} rounded-md`}
-                            required={parseFloat(paymentInfo.amount) > 0}
-                            placeholder="John Doe"
-                          />
-                          <ErrorMessage name="cardName" />
-                        </div>
-                        
-                        <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
+                        <div className="space-y-6">
                           <div>
-                            <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
-                              Expiration Date (MM/YY)
-                            </label>
-                            <input
-                              type="text"
-                              name="expiryDate"
-                              id="expiryDate"
-                              value={paymentInfo.expiryDate}
-                              onChange={handlePaymentChange}
-                              placeholder="MM/YY"
-                              className={`w-full block py-3 sm:text-sm border ${formErrors.expiryDate ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'} rounded-md`}
-                              required={parseFloat(paymentInfo.amount) > 0}
-                              maxLength="5"
-                            />
-                            <ErrorMessage name="expiryDate" />
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 mb-1">
-                              CVV
+                            <label htmlFor="cardNumber" className="block text-sm font-medium text-gray-700 mb-1">
+                              Card Number
                             </label>
                             <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <CreditCard className="h-5 w-5 text-gray-400" />
+                              </div>
                               <input
                                 type="text"
-                                name="cvv"
-                                id="cvv"
-                                value={paymentInfo.cvv}
+                                name="cardNumber"
+                                id="cardNumber"
+                                value={paymentInfo.cardNumber}
                                 onChange={handlePaymentChange}
-                                placeholder="123"
-                                className={`w-full block py-3 sm:text-sm border ${formErrors.cvv ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'} rounded-md`}
+                                placeholder="1234 5678 9012 3456"
+                                className={`w-full block pl-10 pr-10 py-3 sm:text-sm border ${formErrors.cardNumber ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'} rounded-md`}
                                 required={parseFloat(paymentInfo.amount) > 0}
-                                maxLength="4"
                               />
                               <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                                 <Lock className="h-4 w-4 text-gray-400" />
                               </div>
                             </div>
-                            <ErrorMessage name="cvv" />
+                            <ErrorMessage name="cardNumber" />
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="cardName" className="block text-sm font-medium text-gray-700 mb-1">
+                              Name on Card
+                            </label>
+                            <input
+                              type="text"
+                              name="cardName"
+                              id="cardName"
+                              value={paymentInfo.cardName}
+                              onChange={handlePaymentChange}
+                              className={`w-full block py-3 sm:text-sm border ${formErrors.cardName ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'} rounded-md`}
+                              required={parseFloat(paymentInfo.amount) > 0}
+                              placeholder="John Doe"
+                            />
+                            <ErrorMessage name="cardName" />
+                          </div>
+                          
+                          <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
+                            <div>
+                              <label htmlFor="expiryDate" className="block text-sm font-medium text-gray-700 mb-1">
+                                Expiration Date (MM/YY)
+                              </label>
+                              <input
+                                type="text"
+                                name="expiryDate"
+                                id="expiryDate"
+                                value={paymentInfo.expiryDate}
+                                onChange={handlePaymentChange}
+                                placeholder="MM/YY"
+                                className={`w-full block py-3 sm:text-sm border ${formErrors.expiryDate ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'} rounded-md`}
+                                required={parseFloat(paymentInfo.amount) > 0}
+                                maxLength="5"
+                              />
+                              <ErrorMessage name="expiryDate" />
+                            </div>
+                            
+                            <div>
+                              <label htmlFor="cvv" className="block text-sm font-medium text-gray-700 mb-1">
+                                CVV
+                              </label>
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  name="cvv"
+                                  id="cvv"
+                                  value={paymentInfo.cvv}
+                                  onChange={handlePaymentChange}
+                                  placeholder="123"
+                                  className={`w-full block py-3 sm:text-sm border ${formErrors.cvv ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'} rounded-md`}
+                                  required={parseFloat(paymentInfo.amount) > 0}
+                                  maxLength="4"
+                                />
+                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                  <Lock className="h-4 w-4 text-gray-400" />
+                                </div>
+                              </div>
+                              <ErrorMessage name="cvv" />
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-6 bg-gray-50 p-4 rounded-md">
+                          <div className="flex">
+                            <Lock className="h-5 w-5 text-gray-500" />
+                            <p className="ml-2 text-sm text-gray-500">
+                              Your payment information is encrypted and secure. We do not store your credit card details.
+                            </p>
                           </div>
                         </div>
                       </div>
-                      
-                      <div className="mt-6 bg-gray-50 p-4 rounded-md">
-                        <div className="flex">
-                          <Lock className="h-5 w-5 text-gray-500" />
-                          <p className="ml-2 text-sm text-gray-500">
-                            Your payment information is encrypted and secure. We do not store your credit card details.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2 bg-green-50 border border-green-100 rounded-lg p-6">
-                      <CheckCircle className="h-6 w-6 text-green-500" />
-                      <p className="text-green-800 font-medium">
-                        No payment required. You can proceed with creating your event.
-                      </p>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between">
-                  <button
-                    type="button"
-                    onClick={prevStep}
-                    className="inline-flex justify-center py-3 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
-                  >
-                    {loading ? (
-                      <>
-                        
-                        Creating Event...
-                      </>
                     ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        Create Event
-                      </>
+                      <div className="flex items-center space-x-2 bg-green-50 border border-green-100 rounded-lg p-6">
+                        <CheckCircle className="h-6 w-6 text-green-500" />
+                        <p className="text-green-800 font-medium">
+                          No payment required. You can proceed with creating your event.
+                        </p>
+                      </div>
                     )}
-                  </button>
-                </div>
+                  </div>
+                )}
+                
+                {!paymentSuccess && (
+                  <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between">
+                    <button
+                      type="button"
+                      onClick={prevStep}
+                      className="inline-flex justify-center py-3 px-6 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      disabled={processingPayment}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={processPayment}
+                      disabled={processingPayment}
+                      className="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+                    >
+                      {processingPayment ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Processing Payment...
+                        </>
+                      ) : (
+                        <>
+                          Pay ${paymentInfo.amount} & Create Event
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </form>

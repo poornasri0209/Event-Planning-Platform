@@ -86,11 +86,17 @@ const Navbar = () => {
                     Home
                   </Link>
                   <Link 
-                    to="/events" 
-                    className={`${isActive('/events') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
-                  >
-                    Events
-                  </Link>
+                to="/events" 
+                className={`${isActive('/events') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+              >
+                Create Event
+              </Link>
+              <Link 
+                to="/myevents" 
+                className={`${isActive('/myevents') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+              >
+                My Events
+              </Link>
                   <Link 
                     to="/feedback" 
                     className={`${isActive('/feedback') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
@@ -193,12 +199,19 @@ const Navbar = () => {
                   Home
                 </Link>
                 <Link 
-                  to="/events" 
-                  className={`block px-3 py-2 rounded-md ${isActive('/events') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Events
-                </Link>
+              to="/events" 
+              className={`block px-3 py-2 rounded-md ${isActive('/events') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              Create Event
+            </Link>
+            <Link 
+              to="/myevents" 
+              className={`block px-3 py-2 rounded-md ${isActive('/myevents') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              My Events
+            </Link>
                 <Link 
                   to="/feedback" 
                   className={`block px-3 py-2 rounded-md ${isActive('/feedback') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
