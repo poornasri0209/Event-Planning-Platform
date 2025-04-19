@@ -17,23 +17,22 @@ const openai = new OpenAI({
 router.post('/analyze', async (req, res) => {
   try {
     const { 
-      location,  // Location of the event
-      date,      // Date of the event
-      eventType, // Type of event (conference, party, etc.)
-      indoorEvent, // Whether it's an indoor event
-      currentWeather = null // Optional current weather data if available
+      location,          // From formData.location
+      date,              // From formData.startDate
+      eventType,         // From formData.category
+      indoorEvent = true // Default to indoor if not specified
     } = req.body;
 
+    // Verify we have the required fields
     if (!location || !date || !eventType) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Missing required parameters' 
+        message: 'Missing required parameters. Need location, date, and eventType.' 
       });
     }
 
-    // Fetch weather data if not provided
-    // In a real implementation, you would use a weather API here
-    const weatherData = currentWeather || await mockWeatherForecast(location, date);
+    // Use fixed default weather data instead of calling a weather API
+    const weatherData = getDefaultWeather(location, date);
 
     // Generate mood analysis and recommendations using AI
     const recommendations = await generateMoodRecommendations(weatherData, eventType, indoorEvent);
@@ -85,16 +84,16 @@ async function generateMoodRecommendations(weatherData, eventType, indoorEvent) 
     - contingencyPlans: any necessary contingency plans
   `;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [
-      { role: "system", content: "You are an AI event planning assistant with expertise in environmental psychology and weather-mood relationships." },
-      { role: "user", content: prompt }
-    ],
-    response_format: { type: "json_object" }
-  });
-
   try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: "You are an AI event planning assistant with expertise in environmental psychology and weather-mood relationships." },
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" }
+    });
+
     return JSON.parse(completion.choices[0].message.content);
   } catch (error) {
     console.error("Error parsing OpenAI response:", error);
@@ -109,25 +108,18 @@ async function generateMoodRecommendations(weatherData, eventType, indoorEvent) 
   }
 }
 
-// Mock weather forecast function (would be replaced with real weather API in production)
-async function mockWeatherForecast(location, date) {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 300));
-  
-  // In a real implementation, this would call a weather API
-  // For now, generate somewhat realistic weather data
-  const conditions = ['Sunny', 'Partly Cloudy', 'Cloudy', 'Light Rain', 'Heavy Rain', 'Stormy', 'Snowy', 'Foggy', 'Clear'];
-  const timeOptions = ['Morning', 'Afternoon', 'Evening', 'Night'];
-  
+// Function that returns fixed default weather data instead of calling a real API
+function getDefaultWeather(location, date) {
+  // Fixed default weather values
   return {
-    location,
-    date,
-    temperature: Math.floor(Math.random() * 35) + 40, // 40-75°F
+    location: location,
+    date: date,
+    temperature: 72,
     temperatureUnit: 'F',
-    condition: conditions[Math.floor(Math.random() * conditions.length)],
-    humidity: Math.floor(Math.random() * 60) + 30, // 30-90%
-    windSpeed: Math.floor(Math.random() * 15) + 1, // 1-15 mph
-    timeOfDay: timeOptions[Math.floor(Math.random() * timeOptions.length)]
+    condition: 'Sunny',
+    humidity: 45,
+    windSpeed: 5,
+    timeOfDay: 'Afternoon'
   };
 }
 

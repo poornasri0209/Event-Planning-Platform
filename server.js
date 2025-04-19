@@ -1,44 +1,40 @@
-// src/server.js
-require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
-const morgan = require('morgan');
-const apiRoutes = require('./api');
+const dotenv = require('dotenv');
 
-// Initialize Express app
+// Load environment variables
+dotenv.config();
+
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(morgan('dev'));
 
 // API routes
-app.use('/api', apiRoutes);
+app.use('/api', require('./api'));
 
-// Root route
-app.get('/', (req, res) => {
-  res.json({
-    message: 'Sentiment Stories API',
-    version: '1.0.0',
-    features: ['Weather-Mood Adapter', 'Emotional Journey Mapper']
+// Serve static files from the React app build directory
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'dist')));
+
+  // For any request that doesn't match an API route, send the index.html file
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
   });
-});
+}
 
-// Error handling middleware
+// Default error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'An unexpected error occurred',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined
-  });
+  res.status(500).send('Something broke!');
 });
 
 // Start the server
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-module.exports = app; 
+module.exports = app;

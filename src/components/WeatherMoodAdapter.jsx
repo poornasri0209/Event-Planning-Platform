@@ -2,18 +2,23 @@
 import React, { useState, useEffect } from 'react';
 import { Cloud, Sun, CloudRain, Wind, ThermometerSun, Calendar, MapPin, AlertCircle, Check } from 'lucide-react';
 
-const WeatherMoodAdapter = ({ eventData, onSave }) => {
+const WeatherMoodAdapter = ({ eventData, onSave, initialData, viewMode = false }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [weatherData, setWeatherData] = useState(null);
   const [recommendations, setRecommendations] = useState(null);
 
   useEffect(() => {
-    // Only fetch if we have the necessary event data
-    if (eventData?.location && eventData?.startDate) {
+    // If initialData is provided, use it (for view mode)
+    if (initialData) {
+      setWeatherData(initialData.weatherData);
+      setRecommendations(initialData.recommendations);
+    }
+    // Otherwise, only fetch if we have the necessary event data and not in view mode
+    else if (eventData?.location && eventData?.startDate && eventData?.category && !viewMode) {
       fetchWeatherMoodAnalysis();
     }
-  }, [eventData]);
+  }, [eventData, initialData, viewMode]);
 
   // Fetch weather-mood analysis from the backend
   const fetchWeatherMoodAnalysis = async () => {
@@ -21,7 +26,12 @@ const WeatherMoodAdapter = ({ eventData, onSave }) => {
       setLoading(true);
       setError('');
 
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/weather-mood/analyze`, {
+      // Make sure we have the required fields
+      if (!eventData.location || !eventData.startDate || !eventData.category) {
+        throw new Error('Missing required data: location, date, or event type');
+      }
+
+      const response = await fetch('/api/weather-mood/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -29,14 +39,14 @@ const WeatherMoodAdapter = ({ eventData, onSave }) => {
         body: JSON.stringify({
           location: eventData.location,
           date: eventData.startDate,
-          eventType: eventData.category || 'event',
+          eventType: eventData.category,
           indoorEvent: !eventData.virtualEvent // Assuming non-virtual events are indoor
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!data.success) {
         throw new Error(data.message || 'Failed to fetch weather-mood analysis');
       }
 
@@ -44,7 +54,7 @@ const WeatherMoodAdapter = ({ eventData, onSave }) => {
       setRecommendations(data.recommendations);
     } catch (err) {
       console.error('Weather-mood analysis error:', err);
-      setError('Unable to analyze weather-mood relationship. Please try again later.');
+      setError(`Unable to analyze weather-mood relationship: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -69,14 +79,27 @@ const WeatherMoodAdapter = ({ eventData, onSave }) => {
     }
   };
 
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not specified';
+    
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (e) {
+      return dateString; // Fallback to the original string if parsing fails
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 border-b border-gray-200">
-        <h2 className="text-xl font-semibold text-white flex items-center">
-          <Cloud className="mr-2 h-6 w-6" />
-          Weather-Mood Adapter
-        </h2>
-      </div>
+      {!viewMode && (
+        <div className="px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-white flex items-center">
+            <Cloud className="mr-2 h-6 w-6" />
+            Weather-Mood Adapter
+          </h2>
+        </div>
+      )}
 
       {error && (
         <div className="px-6 py-4 bg-red-50 flex items-start">
@@ -93,15 +116,15 @@ const WeatherMoodAdapter = ({ eventData, onSave }) => {
           </div>
         ) : !weatherData ? (
           <div className="text-center py-8">
-            <p className="text-gray-600">
-              {eventData?.location && eventData?.startDate 
-                ? "Click 'Analyze Weather-Mood' to get recommendations." 
-                : "Please provide event location and date to analyze weather impact."}
+            <p className="text-gray-600 mb-3">
+              {eventData?.location && eventData?.startDate && eventData?.category
+                ? "Get personalized recommendations based on weather conditions for your event."
+                : "Please provide event location, date, and category to analyze weather impact."}
             </p>
-            {(eventData?.location && eventData?.startDate) && (
+            {(eventData?.location && eventData?.startDate && eventData?.category) && (
               <button 
                 onClick={fetchWeatherMoodAnalysis}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
               >
                 Analyze Weather-Mood
               </button>
@@ -129,7 +152,7 @@ const WeatherMoodAdapter = ({ eventData, onSave }) => {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm text-gray-500">Temperature</p>
-                    <p className="font-medium">{weatherData.temperature}°{weatherData.temperatureUnit}</p>
+                    <p className="font-medium">{weatherData.temperature}°{weatherData.temperatureUnit || 'F'}</p>
                   </div>
                 </div>
                 
@@ -149,7 +172,10 @@ const WeatherMoodAdapter = ({ eventData, onSave }) => {
                   </div>
                   <div className="ml-4">
                     <p className="text-sm text-gray-500">Date & Time</p>
-                    <p className="font-medium">{new Date(weatherData.date).toLocaleDateString()} ({weatherData.timeOfDay})</p>
+                    <p className="font-medium">
+                      {formatDate(weatherData.date)}
+                      {weatherData.timeOfDay ? ` (${weatherData.timeOfDay})` : ''}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -200,16 +226,18 @@ const WeatherMoodAdapter = ({ eventData, onSave }) => {
                   </div>
                 )}
                 
-                {/* Apply button */}
-                <div className="flex justify-end pt-4">
-                  <button
-                    onClick={handleApplyRecommendations}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <Check className="h-5 w-5 mr-2" />
-                    Apply Recommendations
-                  </button>
-                </div>
+                {/* Apply button - only show if not in view mode */}
+                {!viewMode && onSave && (
+                  <div className="flex justify-end pt-4">
+                    <button
+                      onClick={handleApplyRecommendations}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <Check className="h-5 w-5 mr-2" />
+                      Apply Recommendations
+                    </button>
+                  </div>
+                )}
               </>
             )}
           </div>

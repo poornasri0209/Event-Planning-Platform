@@ -17,19 +17,41 @@ const openai = new OpenAI({
 router.post('/generate', async (req, res) => {
   try {
     const { 
-      eventType,       // Type of event (conference, wedding, etc.)
-      eventDuration,   // Duration in hours
-      audienceSize,    // Number of attendees
-      audienceDetails, // Demographics, interests, etc.
-      eventGoals,      // Main goals of the event
-      keyMoments = [], // Important moments already planned
-      desiredEmotions = [] // Target emotions if any
+      eventType,         // From formData.category
+      eventDuration,     // Calculated from formData.startTime and formData.endTime
+      audienceSize,      // From formData.capacity
+      audienceDetails,   // From formData.notes or description
+      eventGoals,        // From formData.description
+      keyMoments = [],   // Optional, not available in current form
+      desiredEmotions = [] // Optional, not stored in Firestore
     } = req.body;
 
-    if (!eventType || !eventDuration || !audienceSize || !eventGoals) {
+    // Validate required fields
+    if (!eventType) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Missing required parameters' 
+        message: 'Missing required parameter: eventType' 
+      });
+    }
+
+    if (!eventDuration) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required parameter: eventDuration' 
+      });
+    }
+
+    if (!audienceSize) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required parameter: audienceSize' 
+      });
+    }
+
+    if (!eventGoals) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required parameter: eventGoals' 
       });
     }
 
@@ -100,16 +122,16 @@ async function generateEmotionalJourney(
     - transitions: how to transition to the next emotional state
   `;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [
-      { role: "system", content: "You are an AI specializing in emotional design for events, with expertise in environmental psychology and experience design." },
-      { role: "user", content: prompt }
-    ],
-    response_format: { type: "json_object" }
-  });
-
   try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4",
+      messages: [
+        { role: "system", content: "You are an AI specializing in emotional design for events, with expertise in environmental psychology and experience design." },
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" }
+    });
+
     const parsedResponse = JSON.parse(completion.choices[0].message.content);
     
     // Add metadata to the response
