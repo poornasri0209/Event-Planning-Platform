@@ -380,6 +380,7 @@ const EventDetailsPage = () => {
                             </div>
                           </div>
                         )}
+                        {event.emotionalJourney && <EventAIFeatures event={event} />}
                       </div>
                     </div>
                   )}
