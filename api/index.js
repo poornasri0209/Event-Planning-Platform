@@ -7,7 +7,7 @@ app.use(cors());
 app.use(express.json());
 
 // Import your API routes
-const weatherMoodAdapter = require('./emotional-journey/generate');
+const weatherMoodAdapter = require('./weather-mood/analyze');
 const emotionalJourneyMapper = require('./weather-mood/analyze');
 
 // Mount the feature routers
