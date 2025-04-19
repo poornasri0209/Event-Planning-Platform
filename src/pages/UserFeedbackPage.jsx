@@ -1,93 +1,136 @@
 import React, { useState, useEffect } from 'react';
-import { Star, Send } from 'lucide-react';
+import { Star, Send, Calendar, Clock, MapPin, AlertCircle } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 
 const UserFeedbackPage = () => {
   const [formData, setFormData] = useState({
+    eventId: '',
     eventName: '',
     rating: 0,
     feedback: '',
     name: '',
     email: '',
   });
-  const [events, setEvents] = useState([]);
+  
+  const [completedEvents, setCompletedEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [hoverRating, setHoverRating] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const { currentUser } = useAuth();
 
+  // Fetch completed events when component mounts
   useEffect(() => {
+    fetchCompletedEvents();
+    
     // If user is logged in, pre-fill name and email
     if (currentUser) {
       setFormData(prev => ({
         ...prev,
         email: currentUser.email || '',
-        name: currentUser.displayName || ''
+        name: currentUser.displayName || '',
       }));
     }
-
-    // Fetch events from Firestore
-    const fetchEvents = async () => {
-      try {
-        // For demo purposes, we'll just use the static list
-        // In production, uncomment this to fetch from Firestore
-        /*
-        const eventsSnapshot = await getDocs(collection(db, 'events'));
-        const eventsList = eventsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          value: doc.id,
-          label: doc.data().title
-        }));
-        setEvents(eventsList);
-        */
-
-        // Static list of events for demo
-        setEvents([
-          { id: 'tech-conference', value: 'tech-conference', label: 'Annual Tech Conference 2025' },
-          { id: 'product-launch', value: 'product-launch', label: 'Product Launch: EcoSmart Series' },
-          { id: 'leadership-summit', value: 'leadership-summit', label: 'Leadership Summit 2024' },
-          { id: 'team-building', value: 'team-building', label: 'Team Building Retreat' },
-          { id: 'charity-gala', value: 'charity-gala', label: 'Charity Gala Dinner' },
-          { id: 'networking-mixer', value: 'networking-mixer', label: 'Industry Networking Mixer' }
-        ]);
-      } catch (error) {
-        console.error('Error fetching events:', error);
-      }
-    };
-
-    fetchEvents();
   }, [currentUser]);
 
+  // Function to fetch completed events from Firestore
+  const fetchCompletedEvents = async () => {
+    try {
+      setLoading(true);
+      
+      // Query for events with status 'Completed'
+      const eventsCollection = collection(db, 'events');
+      const eventsQuery = query(eventsCollection, where('status', '==', 'Completed'));
+      const querySnapshot = await getDocs(eventsQuery);
+      
+      const events = [];
+      querySnapshot.forEach((doc) => {
+        events.push({
+          id: doc.id,
+          eventName: doc.data().eventName,
+          date: doc.data().startDate ? new Date(doc.data().startDate).toLocaleDateString() : 'Unknown date',
+          location: doc.data().location || 'Unknown location'
+        });
+      });
+      
+      setCompletedEvents(events);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching completed events:', error);
+      setError('Failed to load completed events. Please try again later.');
+      setLoading(false);
+    }
+  };
+
+  // Handle star rating selection
   const handleRatingClick = (rating) => {
     setFormData({ ...formData, rating });
   };
 
+  // Handle input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    
+    if (name === 'eventId') {
+      // Find the event name based on selected event ID
+      const selectedEvent = completedEvents.find(event => event.id === value);
+      setFormData({ 
+        ...formData, 
+        eventId: value,
+        eventName: selectedEvent ? selectedEvent.eventName : ''
+      });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    
+    // Basic validation
+    if (!formData.eventId) {
+      setError('Please select an event to rate');
+      return;
+    }
+    
+    if (formData.rating === 0) {
+      setError('Please provide a rating');
+      return;
+    }
+    
+    if (!formData.feedback.trim()) {
+      setError('Please provide some feedback');
+      return;
+    }
+    
+    setSubmitting(true);
+    setError('');
     
     try {
       // Add feedback to Firestore
       await addDoc(collection(db, 'feedbacks'), {
-        ...formData,
+        eventId: formData.eventId,
+        eventName: formData.eventName,
+        rating: formData.rating,
+        feedback: formData.feedback.trim(),
+        name: formData.name.trim(),
+        email: formData.email.trim(),
         userId: currentUser?.uid || 'anonymous',
         timestamp: serverTimestamp(),
       });
       
+      // Reset form and show success message
       setSubmitted(true);
+      setSubmitting(false);
     } catch (error) {
       console.error('Error submitting feedback:', error);
-      alert('There was an error submitting your feedback. Please try again.');
-    } finally {
-      setLoading(false);
+      setError('There was an error submitting your feedback. Please try again.');
+      setSubmitting(false);
     }
   };
 
@@ -119,6 +162,7 @@ const UserFeedbackPage = () => {
                 onClick={() => {
                   setSubmitted(false);
                   setFormData({
+                    eventId: '',
                     eventName: '',
                     rating: 0,
                     feedback: '',
@@ -138,27 +182,69 @@ const UserFeedbackPage = () => {
               <h2 className="text-xl font-medium text-white">Event Feedback Form</h2>
             </div>
             
+            {error && (
+              <div className="px-6 pt-4 flex items-start">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-red-400" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            )}
+            
             <form onSubmit={handleSubmit} className="p-6">
               <div className="mb-6">
-                <label htmlFor="eventName" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="eventId" className="block text-sm font-medium text-gray-700 mb-1">
                   Which event are you rating?
                 </label>
-                <select
-                  id="eventName"
-                  name="eventName"
-                  required
-                  value={formData.eventName}
-                  onChange={handleChange}
-                  className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                >
-                  <option value="">Select an event</option>
-                  {events.map(event => (
-                    <option key={event.id} value={event.value}>
-                      {event.label}
-                    </option>
-                  ))}
-                </select>
+                {loading ? (
+                  <div className="animate-pulse flex space-x-4">
+                    <div className="flex-1 space-y-6 py-1">
+                      <div className="h-10 bg-gray-200 rounded w-full"></div>
+                    </div>
+                  </div>
+                ) : completedEvents.length > 0 ? (
+                  <select
+                    id="eventId"
+                    name="eventId"
+                    required
+                    value={formData.eventId}
+                    onChange={handleChange}
+                    className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  >
+                    <option value="">Select an event</option>
+                    {completedEvents.map(event => (
+                      <option key={event.id} value={event.id}>
+                        {event.eventName} ({event.date})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-gray-500 border border-gray-200 rounded-md p-3 bg-gray-50">
+                    No completed events found. Only completed events can receive feedback.
+                  </div>
+                )}
               </div>
+              
+              {formData.eventId && (
+                <div className="mb-6 bg-gray-50 p-4 rounded-md">
+                  <div className="text-sm">
+                    <div className="flex items-center mb-2">
+                      <Calendar className="h-4 w-4 text-indigo-500 mr-2" />
+                      <span>
+                        {completedEvents.find(e => e.id === formData.eventId)?.date}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <MapPin className="h-4 w-4 text-indigo-500 mr-2" />
+                      <span>
+                        {completedEvents.find(e => e.id === formData.eventId)?.location}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -246,15 +332,15 @@ const UserFeedbackPage = () => {
               <div className="flex items-center justify-end">
                 <button
                   type="submit"
-                  disabled={loading || formData.rating === 0}
+                  disabled={submitting || formData.rating === 0 || !formData.eventId}
                   className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                    loading || formData.rating === 0 
+                    submitting || formData.rating === 0 || !formData.eventId
                       ? 'bg-gray-400 cursor-not-allowed' 
                       : 'bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500'
                   }`}
                 >
                   <Send className="h-4 w-4 mr-2" />
-                  {loading ? 'Submitting...' : 'Submit Feedback'}
+                  {submitting ? 'Submitting...' : 'Submit Feedback'}
                 </button>
               </div>
             </form>
