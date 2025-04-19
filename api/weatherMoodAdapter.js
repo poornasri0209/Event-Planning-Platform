@@ -1,4 +1,3 @@
-// src/api/weatherMoodAdapter.js
 const express = require('express');
 const router = express.Router();
 const { OpenAI } = require('openai');
