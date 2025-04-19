@@ -58,14 +58,17 @@ const EventAIFeatures = ({ event }) => {
     return Math.round((endTotalMinutes - startTotalMinutes) / 6) / 10;
   };
 
-  // Fetch weather-mood analysis
-  const fetchWeatherAnalysis = async () => {
+  // src/components/EventAIFeatures.jsx - Updated API Calls
+// Update these functions in your EventAIFeatures component
+
+// Fetch weather-mood analysis
+const fetchWeatherAnalysis = async () => {
     try {
       setLoading(true);
       
-      // Make sure we have the required data based on the API requirements
+      // Make sure we have the required data
       if (!event.location || !event.startDate || !event.category) {
-        throw new Error('Missing required event data: need location, date, and category');
+        throw new Error('Missing required event data for weather analysis');
       }
       
       const response = await fetch('/api/weather-mood/analyze', {
@@ -77,10 +80,14 @@ const EventAIFeatures = ({ event }) => {
           location: event.location,
           date: event.startDate,
           eventType: event.category,
-          indoorEvent: !event.virtualEvent // Assuming non-virtual events are indoor
+          indoorEvent: !event.virtualEvent
         }),
       });
-
+  
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+  
       const data = await response.json();
       
       if (!data.success) {
@@ -95,7 +102,7 @@ const EventAIFeatures = ({ event }) => {
       setLoading(false);
     }
   };
-
+  
   // Fetch emotional journey map
   const fetchEmotionalJourney = async () => {
     try {
@@ -104,7 +111,7 @@ const EventAIFeatures = ({ event }) => {
       // Calculate event duration 
       const duration = calculateEventDuration();
       
-      // Make sure we have the required data based on the API requirements
+      // Make sure we have the required data
       if (!event.category || !event.capacity || !event.description) {
         throw new Error('Missing required event data: need category, capacity, and description');
       }
@@ -120,12 +127,15 @@ const EventAIFeatures = ({ event }) => {
           audienceSize: event.capacity,
           audienceDetails: event.notes || `Audience of ${event.capacity} attendees`,
           eventGoals: event.description,
-          // These are optional in the API
           keyMoments: [],
           desiredEmotions: []
         }),
       });
-
+  
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+  
       const data = await response.json();
       
       if (!data.success) {
