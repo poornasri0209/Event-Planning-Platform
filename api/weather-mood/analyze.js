@@ -1,4 +1,4 @@
-// api/emotional-journey/generate.js
+// api/weather-mood/analyze.js
 const { OpenAI } = require('openai');
 
 // Initialize OpenAI client
@@ -30,16 +30,27 @@ export default async function handler(req, res) {
 
   try {
     const { 
+      location,          // From formData.location
+      date,              // From formData.startDate
       eventType,         // From formData.category
-      eventDuration,     // Calculated from formData.startTime and formData.endTime
-      audienceSize,      // From formData.capacity
-      audienceDetails,   // From formData.notes or description
-      eventGoals,        // From formData.description
-      keyMoments = [],   // Optional, not available in current form
-      desiredEmotions = [] // Optional, not stored in Firestore
+      indoorEvent = true // Default to indoor if not specified
     } = req.body;
 
     // Validate required fields
+    if (!location) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required parameter: location' 
+      });
+    }
+
+    if (!date) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required parameter: date' 
+      });
+    }
+
     if (!eventType) {
       return res.status(400).json({ 
         success: false, 
@@ -47,172 +58,95 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!eventDuration) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Missing required parameter: eventDuration' 
-      });
-    }
+    // Get fixed default weather data
+    const weatherData = getDefaultWeather(location, date);
 
-    if (!audienceSize) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Missing required parameter: audienceSize' 
-      });
-    }
-
-    if (!eventGoals) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Missing required parameter: eventGoals' 
-      });
-    }
-
-    // Generate emotional journey map using AI
-    const journeyMap = await generateEmotionalJourney(
-      eventType, 
-      eventDuration, 
-      audienceSize, 
-      audienceDetails, 
-      eventGoals, 
-      keyMoments,
-      desiredEmotions
-    );
+    // Generate mood analysis and recommendations using AI
+    const recommendations = await generateMoodRecommendations(weatherData, eventType, indoorEvent);
 
     return res.status(200).json({
       success: true,
-      journeyMap
+      weatherData,
+      recommendations
     });
   } catch (error) {
-    console.error('Emotional journey mapping error:', error);
+    console.error('Weather-Mood analysis error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to generate emotional journey map',
+      message: 'Failed to analyze weather-mood relationship',
       error: error.message
     });
   }
 }
 
-// Generate emotional journey using OpenAI
-async function generateEmotionalJourney(
-  eventType, 
-  eventDuration, 
-  audienceSize, 
-  audienceDetails, 
-  eventGoals, 
-  keyMoments,
-  desiredEmotions
-) {
-  // Create time segments based on event duration
-  const numberOfSegments = Math.max(5, Math.min(10, Math.ceil(eventDuration / 0.5)));
-  
-  // Build the prompt for OpenAI
+// Generate recommendations using OpenAI
+async function generateMoodRecommendations(weatherData, eventType, indoorEvent) {
   const prompt = `
-    As an AI emotional journey designer for events, create a detailed emotional journey map for the following event:
+    As an AI event planning assistant, analyze the following weather conditions and provide recommendations 
+    to optimize the mood and experience of attendees at this ${eventType}:
 
-    Event Details:
-    - Type: ${eventType}
-    - Duration: ${eventDuration} hours
-    - Audience Size: ${audienceSize} people
-    - Audience Details: ${audienceDetails || 'General audience'}
-    - Event Goals: ${eventGoals}
-    - Key Planned Moments: ${keyMoments.length > 0 ? keyMoments.join(', ') : 'None specified'}
-    - Desired Emotions: ${desiredEmotions.length > 0 ? desiredEmotions.join(', ') : 'Not specified'}
+    Weather Details:
+    - Temperature: ${weatherData.temperature}°${weatherData.temperatureUnit}
+    - Condition: ${weatherData.condition}
+    - Humidity: ${weatherData.humidity}%
+    - Wind: ${weatherData.windSpeed} mph
+    - Time of Day: ${weatherData.timeOfDay}
+    - Is Indoor Event: ${indoorEvent ? 'Yes' : 'No'}
 
-    Create an emotional journey map with ${numberOfSegments} segments that guides attendees through a meaningful emotional experience.
-    For each segment of the event, provide:
+    Based on psychological research linking weather to mood, provide the following:
+    1. Expected mood impact of these weather conditions on attendees
+    2. 3-4 specific recommendations for adjusting:
+       - Lighting (colors, intensity, effects)
+       - Music (genres, tempo, volume)
+       - Activities or schedule adjustments
+       - Food and beverage recommendations
+    3. Any contingency plans needed
     
-    1. The primary emotion to evoke
-    2. Specific sensory elements to create this emotion (visual, auditory, etc.)
-    3. Activity recommendations to induce this emotion
-    4. Transitions between emotional states
-    
-    Structure your response as a JSON array where each object represents a segment of the emotional journey with the following fields:
-    - timepoint: description of when this occurs (e.g., "Arrival", "30 minutes in", "Conclusion")
-    - emotion: the primary emotion to evoke
-    - description: brief description of this emotional phase
-    - elements: specific elements to implement (lighting, music, activities, etc.)
-    - transitions: how to transition to the next emotional state
+    Format the response as a structured JSON object with the following fields:
+    - moodImpact: a description of the expected mood
+    - lighting: lighting recommendations
+    - music: music recommendations
+    - activities: activity recommendations
+    - foodBeverage: food and beverage recommendations
+    - contingencyPlans: any necessary contingency plans
   `;
 
   try {
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
-        { role: "system", content: "You are an AI specializing in emotional design for events, with expertise in environmental psychology and experience design." },
+        { role: "system", content: "You are an AI event planning assistant with expertise in environmental psychology and weather-mood relationships." },
         { role: "user", content: prompt }
       ],
       response_format: { type: "json_object" }
     });
 
-    const parsedResponse = JSON.parse(completion.choices[0].message.content);
-    
-    // Add metadata to the response
-    return {
-      metadata: {
-        eventType,
-        duration: eventDuration,
-        audienceSize,
-        generatedAt: new Date().toISOString(),
-      },
-      journey: parsedResponse.journey || parsedResponse
-    };
+    return JSON.parse(completion.choices[0].message.content);
   } catch (error) {
-    console.error("Error parsing OpenAI response:", error);
-    // Return a fallback journey map
+    console.error("Error generating mood recommendations:", error);
+    // Return a fallback recommendations object
     return {
-      metadata: {
-        eventType,
-        duration: eventDuration,
-        audienceSize,
-        generatedAt: new Date().toISOString(),
-        error: "Failed to generate custom journey"
-      },
-      journey: generateFallbackJourney(eventType, numberOfSegments)
+      moodImpact: "Unable to determine mood impact due to an error",
+      lighting: "Standard lighting recommended",
+      music: "Choose music based on event theme",
+      activities: "Proceed with planned activities",
+      foodBeverage: "Standard refreshments",
+      contingencyPlans: "No specific contingencies needed"
     };
   }
 }
 
-// Generate a basic fallback journey if the API fails
-function generateFallbackJourney(eventType, segments) {
-  const basicJourney = [
-    {
-      timepoint: "Arrival",
-      emotion: "Anticipation",
-      description: "Building excitement as guests arrive",
-      elements: "Upbeat welcome music, warm lighting, greeting area",
-      transitions: "Gradual increase in social interaction"
-    },
-    {
-      timepoint: "Main Event Beginning",
-      emotion: "Engagement",
-      description: "Focusing audience attention on event content",
-      elements: "Dimming peripheral lights, spotlight on main area, attention-grabbing opening",
-      transitions: "Transitional announcement or audio cue"
-    },
-    {
-      timepoint: "Core Experience",
-      emotion: "Immersion",
-      description: "Deep engagement with event content/purpose",
-      elements: "Full sensory engagement, matched to event purpose",
-      transitions: "Maintain engagement through varied stimuli"
-    },
-    {
-      timepoint: "Peak Moment",
-      emotion: "Elevation",
-      description: "Creating a memorable high point",
-      elements: "Crescendo in music, lighting change, collective activity",
-      transitions: "Allow moment to breathe before transitioning"
-    },
-    {
-      timepoint: "Conclusion",
-      emotion: "Reflection & Connection",
-      description: "Meaningful closure and lasting impression",
-      elements: "Summarizing elements, group acknowledgment, forward-looking statements",
-      transitions: "Clear conclusion signaling"
-    }
-  ];
-  
-  // Return either the basic journey or a subset based on requested segments
-  return basicJourney.slice(0, Math.min(basicJourney.length, segments));
+// Function that returns fixed default weather data instead of calling a real API
+function getDefaultWeather(location, date) {
+  // Fixed default weather values
+  return {
+    location: location,
+    date: date,
+    temperature: 72,
+    temperatureUnit: 'F',
+    condition: 'Sunny',
+    humidity: 45,
+    windSpeed: 5,
+    timeOfDay: 'Afternoon'
+  };
 }
