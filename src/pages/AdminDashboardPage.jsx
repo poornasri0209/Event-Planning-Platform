@@ -5,7 +5,6 @@ import {
   BarChart3,
   Calendar,
   Users,
-  Settings,
   LogOut,
   X,
   Menu,
@@ -13,23 +12,19 @@ import {
   Search,
   Briefcase,
   DollarSign,
-  PieChart,
-  Sliders,
   Package,
   User,
   MessageSquare
 } from 'lucide-react';
 
-// Import content components - all from the same directory
+// Import content components
 import DashboardContent from './DashboardContent';
 import EventManagement from './EventManagement';
 import ClientManagement from './ClientManagement';
 import VendorManagement from './VendorManagement';
 import ResourceManagement from './ResourceManagement';
 import FinancialManagement from './FinancialManagement';
-import AnalyticsDashboard from './AnalyticsDashboard';
-import SystemSettings from './SystemSettings';
-import CommunicationsManagement from './CommunicationsManagement';
+import AdminFeedbackManagement from './AdminFeedbackManagement';
 import AdminProfile from './AdminProfile';
 
 // Fallback component for missing components
@@ -46,7 +41,7 @@ const AdminDashboardPage = () => {
   const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
 
-  // Navigation items - Added Profile option to the bottom of the main navigation
+  // Navigation items - Updated to remove Analytics and Settings, added Feedbacks
   const navigation = [
     { name: 'Dashboard', icon: BarChart3 },
     { name: 'Events', icon: Calendar },
@@ -54,9 +49,7 @@ const AdminDashboardPage = () => {
     { name: 'Vendors', icon: Briefcase },
     { name: 'Resources', icon: Package },
     { name: 'Finances', icon: DollarSign },
-    { name: 'Communications', icon: MessageSquare },
-    { name: 'Analytics', icon: PieChart },
-    { name: 'Settings', icon: Sliders },
+    { name: 'Feedbacks', icon: MessageSquare },
     { name: 'Profile', icon: User },
   ];
 
@@ -85,12 +78,8 @@ const AdminDashboardPage = () => {
         return ResourceManagement ? <ResourceManagement /> : <FallbackComponent name="Resource Management" />;
       case 'Finances':
         return FinancialManagement ? <FinancialManagement /> : <FallbackComponent name="Financial Management" />;
-      case 'Communications':
-        return CommunicationsManagement ? <CommunicationsManagement /> : <FallbackComponent name="Communications Management" />;
-      case 'Analytics':
-        return AnalyticsDashboard ? <AnalyticsDashboard /> : <FallbackComponent name="Analytics Dashboard" />;
-      case 'Settings':
-        return SystemSettings ? <SystemSettings /> : <FallbackComponent name="System Settings" />;
+      case 'Feedbacks':
+        return AdminFeedbackManagement ? <AdminFeedbackManagement /> : <FallbackComponent name="Feedback Management" />;
       case 'Profile':
         return AdminProfile ? <AdminProfile /> : <FallbackComponent name="Admin Profile" />;
       default:
