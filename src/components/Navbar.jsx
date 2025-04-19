@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, X, LogOut, User } from 'lucide-react';
+import { Menu, X, LogOut, User, ChevronDown } from 'lucide-react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { currentUser, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -24,6 +25,18 @@ const Navbar = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isDropdownOpen && !event.target.closest('.dropdown-container')) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [isDropdownOpen]);
+
   // Handle logout
   const handleLogout = async () => {
     try {
@@ -40,6 +53,11 @@ const Navbar = () => {
   // Check if the current path matches the given path
   const isActive = (path) => {
     return location.pathname === path;
+  };
+
+  // Check if any of the Others dropdown paths are active
+  const isOthersActive = () => {
+    return isActive('/payments') || isActive('/contact-us');
   };
 
   return (
@@ -81,22 +99,22 @@ const Navbar = () => {
                 <>
                   <Link 
                     to="/home" 
-                    className={`${isActive('/home') ? 'text-white' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                    className={`${isActive('/home') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
                   >
                     Home
                   </Link>
                   <Link 
-                to="/events" 
-                className={`${isActive('/events') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
-              >
-                Create Event
-              </Link>
-              <Link 
-                to="/myevents" 
-                className={`${isActive('/myevents') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
-              >
-                My Events
-              </Link>
+                    to="/events" 
+                    className={`${isActive('/events') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                  >
+                    Create Event
+                  </Link>
+                  <Link 
+                    to="/myevents" 
+                    className={`${isActive('/myevents') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                  >
+                    My Events
+                  </Link>
                   <Link 
                     to="/feedback" 
                     className={`${isActive('/feedback') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
@@ -104,11 +122,46 @@ const Navbar = () => {
                     Feedback
                   </Link>
                   <Link 
-                to="/communicate" 
-                className={`${isActive('/communicate') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
-              >
-                Communicate
-              </Link>
+                    to="/communicate" 
+                    className={`${isActive('/communicate') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
+                  >
+                    Communicate
+                  </Link>
+                  <div className="relative dropdown-container">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsDropdownOpen(!isDropdownOpen);
+                      }}
+                      className={`flex items-center ${
+                        isOthersActive() ? 'text-indigo-600' : 
+                        isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'
+                      } hover:text-indigo-500 font-medium transition-colors`}
+                    >
+                      Others
+                      <ChevronDown className="h-4 w-4 ml-1" />
+                    </button>
+                    {isDropdownOpen && (
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-20">
+                        <div className="py-1">
+                          <Link 
+                            to="/payments" 
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-500"
+                            onClick={() => setIsDropdownOpen(false)}
+                          >
+                            Payments
+                          </Link>
+                          <Link 
+                            to="/contact-us" 
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-500"
+                            onClick={() => setIsDropdownOpen(false)}
+                          >
+                            Contact Us
+                          </Link>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <Link 
                     to="/profile" 
                     className={`${isActive('/profile') ? 'text-indigo-600' : isScrolled || !location.pathname.includes('/home') ? 'text-gray-700' : 'text-white'} hover:text-indigo-500 font-medium transition-colors`}
@@ -199,19 +252,19 @@ const Navbar = () => {
                   Home
                 </Link>
                 <Link 
-              to="/events" 
-              className={`block px-3 py-2 rounded-md ${isActive('/events') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Create Event
-            </Link>
-            <Link 
-              to="/myevents" 
-              className={`block px-3 py-2 rounded-md ${isActive('/myevents') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              My Events
-            </Link>
+                  to="/events" 
+                  className={`block px-3 py-2 rounded-md ${isActive('/events') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Create Event
+                </Link>
+                <Link 
+                  to="/myevents" 
+                  className={`block px-3 py-2 rounded-md ${isActive('/myevents') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  My Events
+                </Link>
                 <Link 
                   to="/feedback" 
                   className={`block px-3 py-2 rounded-md ${isActive('/feedback') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
@@ -220,12 +273,40 @@ const Navbar = () => {
                   Feedback
                 </Link>
                 <Link 
+                  to="/communicate" 
+                  className={`block px-3 py-2 rounded-md ${isActive('/communicate') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Communicate
+                </Link>
+                <Link 
                   to="/profile" 
                   className={`block px-3 py-2 rounded-md ${isActive('/profile') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Profile
                 </Link>
+
+                {/* Others Section (Mobile) */}
+                <div className="py-2 border-t border-gray-200 mt-2">
+                  <p className="px-3 py-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Others
+                  </p>
+                  <Link 
+                    to="/payments" 
+                    className={`block px-3 py-2 rounded-md ${isActive('/payments') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Payments
+                  </Link>
+                  <Link 
+                    to="/contact-us" 
+                    className={`block px-3 py-2 rounded-md ${isActive('/contact-us') ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Contact Us
+                  </Link>
+                </div>
               </>
             )}
             

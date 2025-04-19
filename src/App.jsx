@@ -4,7 +4,6 @@ import { AuthProvider } from "./context/AuthContext";
 import { ProtectedRoute, AdminRoute } from "./components/ProtectedRoute";
 
 // Pages
-// Pages
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import MultiFacPage from './pages/MultiFacPage';
@@ -17,6 +16,8 @@ import AdminProfile from './pages/AdminProfile';
 import EventCreation from './pages/EventCreation';
 import MyEventsPage from './pages/MyEventsPage';
 import EventDetailsPage from './pages/EventDetailsPage';
+import PaymentsPage from './pages/PaymentsPage';
+import ContactUsPage from './pages/ContactUsPage';
 
 const App = () => {
   return (
@@ -61,6 +62,17 @@ const App = () => {
           <Route path="/myevents/:eventId" element={
             <ProtectedRoute>
               <EventDetailsPage />
+            </ProtectedRoute>
+          } />
+
+<Route path="/payments" element={
+            <ProtectedRoute>
+              <PaymentsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/contact-us" element={
+            <ProtectedRoute>
+              <ContactUsPage />
             </ProtectedRoute>
           } />
           
